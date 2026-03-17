@@ -124,29 +124,6 @@ prompt_tuning/
 
 ---
 
-## 你該改什麼？
-
-### 1. `prompts.py` — 系統提示詞
-
-`AGENTIC_RAG_SYSTEM_PROMPT_TEMPLATE` 定義了 AI 助手的角色、語氣、規則。
-修改這裡可以：
-- 改變 AI 的個性和語氣
-- 調整回覆長度和格式
-- 新增或移除行為規則
-- 改善推薦邏輯
-
-### 2. `ordering_assistant.py` — 對話引擎
-
-- `_define_function_tools()`：每個 tool 的 `description` 影響 LLM 選擇工具的決策
-- `_build_agentic_prompt()`：prompt 結構和指引影響回應品質
-
-### 3. `mock_data.py` — Mock 資料
-
-- 可以新增菜單品項、修改價格、調整加料選項
-- 修改 `STORE_INFO` 可改變品牌故事等內容
-
----
-
 ## 架構簡介
 
 ```
@@ -186,9 +163,3 @@ ordering_assistant.py  Layer 2（Gemini function calling）
 - **外層 LLM**：使用 Gemini API Key 模式（function calling）
 - **購物車**：純記憶體（不存 DB），`submit_order` 只回傳模擬結果
 
----
-
-## 不依賴 `src/`
-
-這個實驗資料夾**完全獨立**，不 import `src/` 裡的任何模組。
-所有資料都來自 `mock_data.py`，所有邏輯都自包含在此資料夾中。

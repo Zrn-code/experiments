@@ -91,10 +91,6 @@ docker run -it --env-file .env rag-search
    Grounding: ✅ 有
    來源片段數: 3
 
-🧑 顧客：今天天氣很熱
-
-🍵 店員：天氣這麼熱，來一杯清爽的果茶系列如何？
-   💬 直接回答（未查詢知識庫）
 ```
 
 ---
@@ -113,33 +109,6 @@ rag_search/
 ├── requirements.txt    # Python 依賴
 ├── docs/               # 📌 知識庫文件（上傳到 Cloud Storage 的來源）
 └── README.md
-```
-
----
-
-## 你該改什麼？
-
-### 1. `docs/` — 知識庫文件（核心優化目標）
-
-放入 `docs/` 的文件會上傳到 Cloud Storage，再匯入 Vertex AI Search 建立索引。
-
-文件的品質和結構直接決定 RAG 回答品質。可以嘗試的方向：
-
-- **口語化**：把制式資料改寫成店員會說的話
-- **結構化**：加入分類標題、FAQ 格式，讓檢索更精準
-- **情境化**：加入常見客人問答情境
-- **細節補充**：品牌故事、茶葉產地、推薦搭配等
-
-支援格式：PDF、HTML、TXT、JSON
-
-### 2. `rag_search.py` — 系統提示詞
-
-`SYSTEM_PROMPT` 控制 Gemini 的回答風格和工具使用時機：
-
-```python
-SYSTEM_PROMPT = (
-    "你是「蟬吃茶」的知識助手，負責回答顧客關於品牌、茶葉知識..."
-)
 ```
 
 ---
@@ -219,4 +188,3 @@ VERTEX_DATA_STORE_LOCATION=global
    - 前往 [Agent Builder → Data Stores](https://console.cloud.google.com/gen-app-builder/data-stores)
    - 確認 `.env` 中的 `VERTEX_DATA_STORE_ID` 和 `VERTEX_PROJECT_ID` 與實際一致
    - 確認 Data Store 的 location 與 `VERTEX_DATA_STORE_LOCATION` 一致（通常是 `global`）
-
