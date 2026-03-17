@@ -1,0 +1,79 @@
+{
+  "description": "蟬吃茶產品熱詞範例 — 此為 example，可依實際需求自行調整或新增其他熱詞檔案",
+  "version": "1.0.0",
+  "notes": [
+    "此檔案僅為範例（example），實際部署時請複製為正式檔案並依需求調整",
+    "可建立多個 JSON 檔案（如不同店家），服務會自動載入 hotwords/ 下所有 .json",
+    "支援透過 API 動態新增、刪除、重新載入，無需重啟服務"
+  ],
+  "hotwords": [
+    {"phrase": "高山冷泓青", "boost": 10.0},
+    {"phrase": "蟬吃金玉紅", "boost": 10.0},
+    {"phrase": "蟬吃烏龍綠", "boost": 10.0},
+    {"phrase": "決明子紅茶", "boost": 10.0},
+    {"phrase": "黑糖金玉紅", "boost": 10.0},
+
+    {"phrase": "蟬吃鮮翠烏龍茶", "boost": 10.0},
+    {"phrase": "蟬吃炭焙烏龍茶", "boost": 10.0},
+    {"phrase": "蟬吃手採蜜香紅", "boost": 10.0},
+    {"phrase": "蟬吃手採佳葉龍", "boost": 10.0},
+    {"phrase": "蟬吃手採紅玉紅", "boost": 10.0},
+    {"phrase": "蟬吃玉山烏龍茶", "boost": 10.0},
+
+    {"phrase": "蟬吃烏龍拿鐵", "boost": 10.0},
+    {"phrase": "金玉紅茶拿鐵", "boost": 10.0},
+    {"phrase": "黑糖金玉拿鐵", "boost": 10.0},
+    {"phrase": "黑糖薑紅拿鐵", "boost": 10.0},
+
+    {"phrase": "蟬吃烏龍奶綠", "boost": 10.0},
+    {"phrase": "蟬吃金玉奶茶", "boost": 10.0},
+    {"phrase": "黑糖金玉奶茶", "boost": 10.0},
+    {"phrase": "黑糖薑紅奶茶", "boost": 10.0},
+
+    {"phrase": "鮮檸冷泓青", "boost": 10.0},
+    {"phrase": "生機檸檬綠", "boost": 10.0},
+    {"phrase": "生機檸檬紅", "boost": 10.0},
+    {"phrase": "百香果綠茶", "boost": 10.0},
+    {"phrase": "火龍檸檬青", "boost": 10.0},
+
+    {"phrase": "蟬吃黑糖薑茶", "boost": 10.0},
+    {"phrase": "蟬吃黑糖薑紅", "boost": 10.0},
+    {"phrase": "蟬吃烏龍薑茶", "boost": 10.0},
+    {"phrase": "蟬吃黑龍薑茶", "boost": 10.0},
+
+    {"phrase": "養顏蜂蜜水", "boost": 10.0},
+    {"phrase": "蟬吃蜂蜜綠", "boost": 10.0},
+    {"phrase": "蜂蜜冷泓青", "boost": 10.0},
+    {"phrase": "蟬吃蜂蜜紅", "boost": 10.0},
+    {"phrase": "蜂蜜檸檬汁", "boost": 10.0},
+    {"phrase": "蜂蜜檸檬綠", "boost": 10.0},
+    {"phrase": "蜂蜜檸檬青", "boost": 10.0},
+    {"phrase": "蜂蜜檸檬紅", "boost": 10.0},
+
+    {"phrase": "珍珠金玉紅拿鐵", "boost": 10.0},
+    {"phrase": "珍珠黑玉紅拿鐵", "boost": 10.0},
+    {"phrase": "珍珠奶茶", "boost": 10.0},
+    {"phrase": "珍珠奶綠", "boost": 10.0},
+    {"phrase": "小芋圓珍奶", "boost": 10.0},
+    {"phrase": "小芋圓珍奶綠", "boost": 10.0},
+    {"phrase": "冷泓綠纖子", "boost": 10.0},
+    {"phrase": "珍珠黑糖牛乳", "boost": 10.0},
+    {"phrase": "珍珠黑糖鮮奶", "boost": 10.0},
+
+    {"phrase": "大杯", "boost": 5.0},
+    {"phrase": "中杯", "boost": 5.0},
+    {"phrase": "少冰", "boost": 5.0},
+    {"phrase": "去冰", "boost": 5.0},
+    {"phrase": "微冰", "boost": 5.0},
+    {"phrase": "正常冰", "boost": 5.0},
+    {"phrase": "少糖", "boost": 5.0},
+    {"phrase": "半糖", "boost": 5.0},
+    {"phrase": "微糖", "boost": 5.0},
+    {"phrase": "正常糖", "boost": 5.0},
+    {"phrase": "無糖", "boost": 5.0},
+    {"phrase": "加珍珠", "boost": 5.0},
+    {"phrase": "加椰果", "boost": 5.0},
+    {"phrase": "外帶", "boost": 5.0},
+    {"phrase": "內用", "boost": 5.0}
+  ]
+}
