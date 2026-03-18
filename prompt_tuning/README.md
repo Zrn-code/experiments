@@ -8,12 +8,15 @@
 
 2. **模型遷移至 gemini-2.5-flash-lite**：目前使用 gemini-2.5-flash，需設法改用 gemini-2.5-flash-lite 等更輕量的模型，在減少 token 消耗與加速回應的同時，**盡可能保證對於複雜訂單的處理效能是一致的**（多品項點餐、修改、移除、加料等情境）。
 
+3. **多層 Agent（Sub-Agent）架構優化**：除了修改 prompt 本身，也可嘗試將目前的單一 Agent 拆分為**多層 sub-agent 架構**，讓不同的 agent 專責處理不同任務（如意圖分類、點餐執行、閒聊回覆），藉此優化 **token 消耗**、**金錢成本** 與 **回應速度**。
+
 ## 核心需求
 
 | 項目 | 說明 |
 |------|------|
 | Prompt 精簡 | 簡化 `SYSTEM_PROMPT_TEMPLATE`，移除冗餘指令、合併重複規則|
-| 架構調整 | 可調整 tool description 精簡、減少 function calling turns等以降低整體 token 消耗 |
+| 架構調整 | 可調整 tool description 精簡、減少 function calling turns 等以降低整體 token 消耗 |
+| 多層 Agent 架構 | 將單一 Agent 拆為多個 sub-agent，各自使用最適合的模型與最精簡的 prompt，降低每次請求的 token 總量與延遲（詳見下方「多層 Agent 優化方向」） |
 | 模型遷移 | 從 `gemini-2.5-flash` 遷移至 `gemini-2.5-flash-lite`，修改 `config.py` 預設值 |
 | 效能保證 | 複雜訂單（多品項、修改、移除、加料）的處理準確度不能下降 |
 | Token 消耗追蹤 | 加入 token 使用量的觀測/記錄機制，用以量化優化效果 |
@@ -29,7 +32,7 @@
 - [ ] 修改 vs 新增判斷準確率不下降：「幫我改成大杯」使用 `update_cart_item` 而非 `add_to_cart`
 - [ ] 結帳流程完整可用
 - [ ] 閒聊/查詢店家資訊功能正常（營業時間、菜單查詢等）
-- [ ] 提供 token 消耗的前後對比數據（flash vs flash-lite，優化前 vs 後）
+- [ ] 提供 token / 金錢 消耗的前後對比數據（flash vs flash-lite，優化前 vs 後）
 - [ ] 提供回應延遲的前後對比數據
 - [ ] 語音輸入測試：透過我們提供的語音模組（目前使用 Gemini 模擬，可替換成其他 ASR 模型），接收音訊並完成點餐流程
 - [ ] 語音 vs 文字點餐一致性測試：同一句話的文字輸入與語音輸入應產生相同的購物車結果
@@ -162,4 +165,82 @@ ordering_assistant.py  Layer 2（Gemini function calling）
 
 - **外層 LLM**：使用 Gemini API Key 模式（function calling）
 - **購物車**：純記憶體（不存 DB），`submit_order` 只回傳模擬結果
+
+---
+
+## 多層 Agent（Sub-Agent）優化方向
+
+除了直接修改 prompt 內容，另一個重要的優化策略是**將單一大 Agent 拆分為多層 sub-agent 架構**。核心思路：不是每個使用者請求都需要完整的 system prompt 和所有 tool definitions — 透過分層處理，可以大幅減少每次 LLM 呼叫所需的 token 量。
+
+### 為什麼 Sub-Agent 能優化成本與速度？
+
+| 問題 | 單一 Agent | 多層 Sub-Agent |
+|------|-----------|----------------|
+| **每次請求的 prompt 大小** | 完整 system prompt + 所有 tool definitions → token 量大 | 每個 sub-agent 只帶自己需要的 prompt 與 tools → token 量小 |
+| **模型選擇** | 統一使用同一個模型 | 不同 agent 可用不同模型：簡單任務用便宜快速的模型，複雜任務才用強模型 |
+| **回應延遲** | prompt 越長，首 token 延遲越高 | 每層 prompt 精簡，回應更快；簡單請求可提前返回不進入深層 agent |
+| **Function calling 輪次** | 所有 tools 混在一起，模型需從大量 tools 中選擇 | 每層 agent 只暴露少量 tools，選擇更精準、減少誤呼叫 |
+
+### 建議的 Sub-Agent 架構
+
+```
+用戶輸入（文字 / 語音轉文字）
+  │
+  ▼
+┌─────────────────────────────────────────────┐
+│  Router Agent（意圖分類）                      │
+│  模型：gemini-2.5-flash-lite（最輕量）          │
+│  Prompt：極精簡，僅做意圖分類                    │
+│  Tools：無                                     │
+│  輸出：intent = ordering / chitchat / info_query│
+└────────────┬────────────────────────────────────┘
+             │
+     ┌───────┼───────┐
+     ▼       ▼       ▼
+┌─────────┐ ┌──────────┐ ┌──────────────┐
+│ Ordering│ │ Chitchat │ │ Info Query   │
+│ Agent   │ │ Agent    │ │ Agent        │
+│         │ │          │ │              │
+│ flash   │ │flash-lite│ │ flash-lite   │
+│ 完整點餐 │ │ 無 tools │ │ 店家資訊     │
+│ prompt  │ │ 簡短回覆 │ │ tools only  │
+│ + tools │ │          │ │              │
+└─────────┘ └──────────┘ └──────────────┘
+```
+
+#### 各層 Agent 說明
+
+| Agent | 職責 | 模型建議 | Prompt 大小 | Tools |
+|-------|------|---------|------------|-------|
+| **Router Agent** | 判斷使用者意圖（點餐 / 閒聊 / 查詢資訊） | `gemini-2.5-flash-lite` | 極小（< 200 tokens） | 無 |
+| **Ordering Agent** | 處理點餐、修改、移除、加料、結帳 | `gemini-2.5-flash` | 中等（僅點餐相關規則） | `add_to_cart`, `update_cart_item`, `remove_from_cart`, `get_product_price`, ... |
+| **Chitchat Agent** | 閒聊、打招呼、與點餐無關的對話 | `gemini-2.5-flash-lite` | 極小（品牌語調即可） | 無 |
+| **Info Query Agent** | 營業時間、菜單查詢、店家資訊 | `gemini-2.5-flash-lite` | 小 | `get_store_info`, `get_full_menu`, `get_store_hours`, ... |
+
+### Token / 成本優化效果預估
+
+以一個典型的「閒聊 → 看菜單 → 點餐」對話流為例：
+
+| 場景 | 單一 Agent（每輪 token） | 多層 Sub-Agent（每輪 token） | 節省比例 |
+|------|------------------------|----------------------------|----------|
+| 閒聊「你好」 | 完整 prompt ~2000+ tokens | Router ~200 + Chitchat ~300 = ~500 tokens | **~75%** |
+| 查菜單 | 完整 prompt ~2000+ tokens | Router ~200 + Info ~500 = ~700 tokens | **~65%** |
+| 點餐（複雜） | 完整 prompt ~2000+ tokens | Router ~200 + Ordering ~1500 = ~1700 tokens | **~15%** |
+| **混合對話（10 輪）** | 每輪都是 ~2000+ | 依意圖分配，加權平均 ~800 | **~60%** |
+
+> **關鍵洞察**：實際對話中，純點餐操作往往只佔少數輪次，大量輪次是閒聊、確認、查詢。Sub-agent 架構讓這些「輕量輪次」真正變得輕量。
+
+### 回應速度優化
+
+- **Router Agent** 因 prompt 極短，首 token 延遲可控制在 **< 200ms**
+- 簡單意圖（閒聊 / 查詢）走輕量 agent，端到端延遲可比單一 Agent 快 **30-50%**
+- 複雜點餐仍走完整 Ordering Agent，確保準確度不犧牲
+
+### 實作建議
+
+1. **先實作 Router Agent**：用 `gemini-2.5-flash-lite` + 極簡 prompt 做意圖分類，輸出 JSON `{"intent": "ordering" | "chitchat" | "info_query"}`
+2. **拆分現有 tools**：將 `ordering_assistant.py` 中的 tools 依職責分組，各 sub-agent 只註冊自己需要的 tools
+3. **對話歷史管理**：Router Agent 只需最近 1-2 輪上下文；Ordering Agent 需要完整點餐上下文（但不需要閒聊歷史）
+4. **量測對比**：每層 agent 獨立記錄 `prompt_tokens` / `completion_tokens` / `latency`，與原始單一 Agent 做 A/B 對比
+5. **漸進式拆分**：可先從「閒聊分流」開始（效果最顯著），再逐步拆分 info query 與 ordering
 
