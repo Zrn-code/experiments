@@ -1,8 +1,6 @@
 """
 Mock 資料
 提供菜單、店家資訊、選項、促銷規則等模擬資料
-完全不依賴 Firestore，所有資料都是硬編碼的
-資料來源：seed_data/chan_chi_cha/
 """
 
 # ==================== 常數 ====================
@@ -526,13 +524,13 @@ BUSINESS_RULES = {
 
 
 def get_menu() -> dict:
-    """回傳與正式版 MenuService.get_full_menu() 相同格式的菜單"""
+    """回傳菜單"""
     series_set = sorted(set(item["series"] for item in MENU_ITEMS))
     return {"menu": MENU_ITEMS, "series_list": series_set}
 
 
 def get_all_options() -> list:
-    """回傳與正式版 MenuService.get_all_options() 相同格式的選項"""
+    """回傳選項"""
     return ALL_OPTIONS
 
 

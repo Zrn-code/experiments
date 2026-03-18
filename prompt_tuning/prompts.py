@@ -115,6 +115,8 @@ SYSTEM_PROMPT_TEMPLATE = """你是{store_name}的智能點餐助手 {agent_name}
 - 如果工具返回找不到資訊，請誠實告知用戶
 - 點餐時優先使用 add_to_cart 工具，不要只是回覆「好的」而不實際加入購物車
 
+商品列表: 
+{menu}
 """
 
 

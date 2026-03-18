@@ -24,7 +24,7 @@
 - [ ] 可偵測中文喚醒詞的模型（如「小蟬」、「早安」）
 - [ ] 可以設定新的喚醒詞
 - [ ] 準確率指標：喚醒率 > 90%、誤喚醒率 < 5%（安靜環境）
-- [ ] 建立 Flutter Plugin，透過 Platform Channel 呼叫 Android 端推論
+- [ ] 建立 Flutter Plugin或其他方式，透過 Platform Channel 呼叫 Android 端推論
 - [ ] Android Demo App 可持續監聽並在偵測到喚醒詞時觸發回呼
 - [ ] 使用者可透過 App 設定新的喚醒詞（含引導錄音流程）
 - [ ] 提供說明文件
