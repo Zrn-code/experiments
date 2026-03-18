@@ -13,3 +13,5 @@
 | [chinese_asr/](chinese_asr/) | 中文語音辨識模型伺服器（熱詞支援 + GCP 部署） |
 
 詳細說明請參考各資料夾內的 README。
+
+> 若出現技術問題，請聯繫此email **zxc0978827909@gmail.com**。
