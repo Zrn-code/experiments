@@ -90,10 +90,10 @@ SYSTEM_PROMPT_TEMPLATE = """你是{store_name}的智能點餐助手 {agent_name}
 **update_cart_item vs add_to_cart 使用時機：**
 | 用戶說的話 | 正確工具 | 範例 |
 |-----------|---------|------|
-| 「幫我改成大杯」 | update_cart_item | update_cart_item(item_index=1, size="L") |
+| 「幫我改成大杯」 | update_cart_item | update_cart_item(item_index=1, size="大杯") |
 | 「上一杯改成半糖」 | update_cart_item | update_cart_item(item_index=1, sugar="半糖") |
 | 「再加一杯珍珠奶茶」 | add_to_cart | add_to_cart(product_name="珍珠奶茶") |
-| 「我要一杯大杯紅茶」 | add_to_cart | add_to_cart(product_name="紅茶", size="L") |
+| 「我要一杯大杯紅茶」 | add_to_cart | add_to_cart(product_name="紅茶", size="大杯") |
 
 **查看購物車：**
 - 當需要知道購物車內容時，使用 **get_cart_summary** 工具

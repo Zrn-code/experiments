@@ -185,8 +185,8 @@ class OrderingAssistant:
                     ),
                     "size": types.Schema(
                         type=types.Type.STRING,
-                        description="尺寸：M（中杯）或 L（大杯），預設 M",
-                        enum=["M", "L"],
+                        description="尺寸：中杯 或 大杯，預設中杯",
+                        enum=["中杯", "大杯"],
                     ),
                     "sugar": types.Schema(
                         type=types.Type.STRING,
@@ -224,7 +224,7 @@ class OrderingAssistant:
                     "size": types.Schema(
                         type=types.Type.STRING,
                         description="新尺寸",
-                        enum=["M", "L"],
+                        enum=["中杯", "大杯"],
                     ),
                     "sugar": types.Schema(type=types.Type.STRING, description="新甜度"),
                     "ice": types.Schema(type=types.Type.STRING, description="新冰塊"),
@@ -345,7 +345,7 @@ class OrderingAssistant:
             return self.order_tools.add_to_cart(
                 cart=self.cart,
                 product_name=args.get("product_name", ""),
-                size=args.get("size", "M"),
+                size=args.get("size", "中杯"),
                 sugar=args.get("sugar", "正常糖"),
                 ice=args.get("ice", "正常冰"),
                 toppings=args.get("toppings", []),

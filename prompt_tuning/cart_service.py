@@ -145,7 +145,7 @@ class MCPOrderToolsService:
         self,
         cart: Cart,
         product_name: str,
-        size: str = "M",
+        size: str = "中杯",
         sugar: str = "正常糖",
         ice: str = "正常冰",
         toppings: List[str] = None,
@@ -177,7 +177,7 @@ class MCPOrderToolsService:
                 item_id=f"item_{uuid.uuid4().hex[:8]}",
                 product_id=str(product.get("id", product["name"])),
                 name=product["name"],
-                size=size,
+                size=normalized_size,
                 sugar=sugar,
                 ice=ice,
                 toppings=toppings,
@@ -191,7 +191,7 @@ class MCPOrderToolsService:
             cart.items.append(cart_item)
             cart.updated_at = datetime.now()
 
-            size_label = "大杯" if size == "L" else "中杯"
+            size_label = normalized_size
             toppings_text = f"、加{'/'.join(toppings)}" if toppings else ""
             options_text = f"{sugar}/{ice}{toppings_text}"
 
@@ -278,23 +278,25 @@ class MCPOrderToolsService:
                 target_item.quantity = quantity
                 updated_fields.append(f"數量: {quantity}")
 
-            if size and size in ["M", "L"]:
+            if size:
+                normalized_new_size = self._normalize_size(size)
                 old_size = target_item.size
-                target_item.size = size
+                target_item.size = normalized_new_size
                 product = find_product(target_item.name)
                 if product:
                     new_price = self._calculate_price(
-                        product, size, target_item.toppings
+                        product, normalized_new_size, target_item.toppings
                     )
                     if new_price == 0:
                         target_item.size = old_size
-                        return f"❌ 無法將「{target_item.name}」改成{'大杯' if size == 'L' else '中杯'}，該商品可能沒有此尺寸"
+                        return f"❌ 無法將「{target_item.name}」改成{normalized_new_size}，該商品可能沒有此尺寸"
                     target_item.price = new_price
                 else:
                     target_item.size = old_size
                     return f"❌ 找不到商品「{target_item.name}」的資訊，無法更新尺寸"
-                size_label = "中杯" if size == "M" else "大杯"
-                updated_fields.append(f"尺寸: {size_label} (${target_item.price})")
+                updated_fields.append(
+                    f"尺寸: {normalized_new_size} (${target_item.price})"
+                )
 
             if sugar:
                 target_item.sugar = self._normalize_sugar(sugar)
@@ -401,11 +403,7 @@ class MCPOrderToolsService:
             for i, item in enumerate(cart.items, 1):
                 toppings_text = f"+{'/'.join(item.toppings)}" if item.toppings else ""
                 options_text = f"{item.sugar}/{item.ice}{toppings_text}"
-                size_display = (
-                    "中杯"
-                    if item.size == "M"
-                    else "大杯" if item.size == "L" else item.size
-                )
+                size_display = item.size
 
                 lines.append(f"{i}. {item.name} ({size_display})")
                 lines.append(f"   {options_text}")

@@ -515,7 +515,7 @@ BUSINESS_RULES = {
     "default_sweetness": "正常糖",
     "default_ice": "正常冰",
     "default_cup_size": "大杯",
-    "thick_straw_toppings": ["珍珠", "芋圓", "混珠", "芋頭", "粉圓"],
+    "thick_straw_toppings": ["珍珠", "芋圓", "混珠", "小紫蘇", "粉圓"],
     "own_cup_skip_straw": True,
 }
 
