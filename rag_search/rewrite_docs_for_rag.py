@@ -24,7 +24,7 @@ load_dotenv()
 DOCS_MD_DIR = Path(__file__).parent / "docs_md"
 OUTPUT_DIR = Path(__file__).parent / "docs_rag"
 
-MODEL = os.getenv("MODEL_NAME", "gemini-3.1-pro-preview")
+MODEL = os.getenv("MODEL_NAME", "gemini-3.1-flash-lite-preview")
 
 
 # ── Gemini client ──────────────────────────────────────────
