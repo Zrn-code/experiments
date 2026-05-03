@@ -1,0 +1,4495 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>蟬吃茶 Kiosk・禪意重設計</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@300;400;500;600;700;900&family=Cormorant+Garamond:wght@300;400;500;600&family=Ma+Shan+Zheng&display=swap" rel="stylesheet">
+<style>
+  /* ───────────────────────────────────────────────
+     設計 Token（沿用 app_theme.dart 的禪意配色）
+     ─────────────────────────────────────────────── */
+  :root{
+    --primary:        #9B6A2E;   /* 琥珀棕 */
+    --primary-deep:   #6B4423;   /* 深咖啡 */
+    --primary-soft:   #C8A574;   /* 暖琥珀（高光） */
+    --bg:             #EDE8DD;   /* 米色背景 */
+    --card:           #FAF6EC;   /* 卡片 */
+    --surface:        #F5F0E5;
+    --ink:            #1A1208;   /* 深字 */
+    --ink-soft:       #78655A;   /* 副字 */
+    --ink-mute:       #AAA090;
+    --line:           #CEC1AA;
+    --line-soft:      #DCD3C0;
+    --vermilion:      #B84040;   /* 印章紅 */
+    --green-tea:      #7A8C5C;   /* 抹茶綠 */
+    --black-tea:      #6B2A1F;   /* 紅茶棗紅 */
+    --milk-tea:       #C9A678;   /* 奶茶米白 */
+    --shadow-soft:    0 2px 12px rgba(26,18,8,.04);
+    --shadow-paper:   0 4px 24px rgba(26,18,8,.06);
+    --serif:          "Noto Serif TC","Songti TC", serif;
+    --serif-en:       "Cormorant Garamond","Noto Serif TC", serif;
+    --brush:          "Ma Shan Zheng","Noto Serif TC", serif;
+  }
+
+  body[data-theme="night"]{
+    --bg:        #1F1A14;
+    --card:      #2A2218;
+    --surface:   #251E15;
+    --ink:       #F1E9D8;
+    --ink-soft:  #B8A88E;
+    --ink-mute:  #6F6452;
+    --line:      #3A2F22;
+    --line-soft: #2E251A;
+    --primary-soft: #D4A87A;
+  }
+
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{
+    width:100%;height:100%;
+    background:#0a0805;
+    font-family:var(--serif);
+    color:var(--ink);
+    overflow:hidden;
+  }
+
+  /* English helper class */
+  .en{font-family:var(--serif-en);font-weight:400;letter-spacing:.04em;font-style:italic}
+
+  /* ───────────────────────────────────────────────
+     Stage：1920×1080 固定畫布
+     ─────────────────────────────────────────────── */
+  #stage-wrap{
+    position:fixed;inset:0;
+    display:flex;align-items:center;justify-content:center;
+    background:radial-gradient(ellipse at center,#1a1410 0%,#050402 100%);
+  }
+  #stage{
+    width:1920px;height:1080px;
+    background:var(--bg);
+    position:relative;overflow:hidden;
+    transform-origin:center center;
+    transition:background .6s ease;
+    box-shadow:0 30px 80px rgba(0,0,0,.6),0 0 0 1px rgba(255,255,255,.04);
+  }
+
+  /* 紙本紋理 */
+  #stage::before{
+    content:"";position:absolute;inset:0;
+    background-image:
+      radial-gradient(circle at 20% 30%, rgba(155,106,46,.05) 0%, transparent 35%),
+      radial-gradient(circle at 80% 75%, rgba(107,68,35,.04) 0%, transparent 40%);
+    pointer-events:none;z-index:0;
+  }
+  #stage::after{
+    content:"";position:absolute;inset:0;
+    background-image:
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence baseFrequency='.85' numOctaves='2' seed='4'/><feColorMatrix values='0 0 0 0 .6  0 0 0 0 .45  0 0 0 0 .25  0 0 0 .045 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+    opacity:.45;mix-blend-mode:multiply;
+    pointer-events:none;z-index:0;
+  }
+
+  /* ───────────────────────────────────────────────
+     Page Switcher
+     ─────────────────────────────────────────────── */
+  .page{
+    position:absolute;inset:0;
+    opacity:0;pointer-events:none;
+    transition:opacity .9s cubic-bezier(.4,0,.2,1);
+    z-index:1;
+  }
+  .page.active{opacity:1;pointer-events:auto;z-index:2}
+
+  /* ───────────────────────────────────────────────
+     公用元件：印章 / 毛筆刷 / Enso / 浮塵
+     ─────────────────────────────────────────────── */
+  .vertical-cipher{
+    position:absolute;
+    writing-mode:vertical-rl;
+    font-family:var(--brush);
+    color:var(--ink-mute);
+    letter-spacing:.4em;
+    user-select:none;
+  }
+
+  .seal{
+    display:inline-flex;align-items:center;justify-content:center;
+    width:62px;height:62px;
+    background:var(--vermilion);
+    color:#FAF6EC;
+    border-radius:6px;
+    font-family:var(--brush);
+    font-size:38px;font-weight:600;
+    box-shadow:inset 0 0 0 3px rgba(255,255,255,.5),inset 0 0 0 4px var(--vermilion);
+    transform:rotate(-4deg);
+    position:relative;
+  }
+  .seal::after{
+    content:"";position:absolute;inset:-2px;
+    border-radius:8px;
+    background-image:
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='62' height='62'><filter id='r'><feTurbulence baseFrequency='.9' numOctaves='2'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 .35 0'/></filter><rect width='100%' height='100%' filter='url(%23r)'/></svg>");
+    mix-blend-mode:screen;opacity:.55;pointer-events:none;border-radius:6px;
+  }
+
+  .enso-stack{
+    position:relative;
+    display:inline-flex;align-items:center;justify-content:center;
+    aspect-ratio:1;
+  }
+  .enso-stack > svg.enso{
+    position:absolute;inset:0;width:100%;height:100%;
+    transform:rotate(-12deg);
+  }
+  .enso-stack > .glyph{
+    font-family:var(--brush);
+    color:var(--ink);
+    z-index:1;transition:opacity .5s ease;
+  }
+  .enso path{
+    stroke:currentColor;stroke-width:3.6;stroke-linecap:round;stroke-linejoin:round;
+    fill:none;
+    stroke-dasharray:600;stroke-dashoffset:600;
+    animation:enso-draw 2.6s cubic-bezier(.4,0,.2,1) forwards;
+  }
+  @keyframes enso-draw{ to{stroke-dashoffset:0} }
+  .enso.breath{
+    animation:enso-breath 5s ease-in-out infinite;
+  }
+  @keyframes enso-breath{
+    0%,100%{transform:rotate(-12deg) scale(1)}
+    50%{transform:rotate(-12deg) scale(1.025)}
+  }
+
+  .dust{position:absolute;inset:0;pointer-events:none;overflow:hidden;z-index:1}
+  .dust span{
+    position:absolute;
+    width:6px;height:6px;border-radius:50%;
+    background:radial-gradient(circle,rgba(200,165,116,.7),transparent 70%);
+    animation:float 14s ease-in-out infinite;
+  }
+  @keyframes float{
+    0%,100%{transform:translateY(0) translateX(0);opacity:.2}
+    50%   {transform:translateY(-40px) translateX(20px);opacity:.7}
+  }
+
+  /* ───────────────────────────────────────────────
+     全域：頂部 Header（語言切換、回到首頁）
+     ─────────────────────────────────────────────── */
+  .topbar{
+    position:absolute;top:36px;left:64px;right:64px;
+    display:flex;justify-content:space-between;align-items:center;
+    z-index:5;
+  }
+  .topbar .brand-min{
+    display:flex;align-items:center;gap:14px;cursor:pointer;
+  }
+  .topbar .brand-min .seal{width:42px;height:42px;font-size:22px}
+  .topbar .brand-min .name{
+    font-size:22px;letter-spacing:.4em;color:var(--ink);font-weight:600;
+  }
+  .topbar .brand-min .name small{
+    display:block;font-size:11px;color:var(--ink-mute);
+    letter-spacing:.3em;margin-top:2px;font-weight:400;
+    font-family:var(--serif-en);font-style:italic;
+  }
+  .lang-toggle{
+    display:flex;align-items:center;gap:0;
+    padding:6px;border:1px solid var(--line);
+    border-radius:999px;background:var(--card);
+  }
+  .lang-toggle button{
+    padding:8px 22px;border:none;background:transparent;
+    font-family:var(--serif);font-size:15px;letter-spacing:.2em;
+    color:var(--ink-mute);cursor:pointer;border-radius:999px;
+    transition:all .3s ease;
+  }
+  .lang-toggle button.on{
+    background:var(--primary);color:#FAF6EC;
+  }
+  .lang-toggle button[data-l="en"]{font-family:var(--serif-en);font-style:italic}
+
+  /* 返回按鈕 */
+  .back-btn{
+    display:inline-flex;align-items:center;gap:10px;
+    padding:10px 22px;
+    border:1px solid var(--line);
+    border-radius:999px;
+    background:var(--card);
+    color:var(--ink-soft);
+    font-family:var(--serif);font-size:15px;letter-spacing:.3em;
+    cursor:pointer;
+    transition:all .3s;
+  }
+  .back-btn:hover{border-color:var(--primary);color:var(--primary-deep)}
+  .back-btn .arrow{font-size:18px;letter-spacing:0}
+
+  /* ───────────────────────────────────────────────
+     PAGE 1：迎客 (welcome)
+     ─────────────────────────────────────────────── */
+  .page-welcome{
+    background:
+      radial-gradient(ellipse 1200px 800px at 50% 40%, rgba(155,106,46,.10), transparent 70%),
+      var(--bg);
+  }
+  .welcome-hero{
+    position:absolute;top:50%;left:50%;
+    transform:translate(-50%,-58%);
+    display:flex;flex-direction:column;align-items:center;gap:48px;
+  }
+  .welcome-hero .enso-stack{
+    width:340px;color:var(--primary);
+  }
+  .welcome-hero .enso-stack .glyph{
+    font-size:96px;color:var(--primary-deep);
+    font-weight:400;transform:translateY(2px);
+  }
+  .welcome-title{
+    font-family:var(--serif);font-weight:700;font-size:96px;
+    color:var(--ink);letter-spacing:.45em;text-indent:.45em;line-height:1;
+  }
+  .welcome-subtitle-zh{
+    font-size:20px;color:var(--ink-soft);
+    letter-spacing:.7em;text-indent:.7em;
+    margin-top:18px;
+  }
+  .welcome-subtitle-en{
+    font-family:var(--serif-en);font-style:italic;
+    font-size:24px;color:var(--ink-mute);
+    letter-spacing:.18em;
+    margin-top:8px;text-align:center;
+  }
+  .welcome-cta{
+    position:absolute;bottom:120px;left:50%;
+    transform:translateX(-50%);
+    display:flex;flex-direction:column;align-items:center;gap:18px;
+  }
+  .welcome-cta .ring{
+    width:84px;height:84px;border-radius:50%;
+    border:1.4px solid var(--primary);
+    display:flex;align-items:center;justify-content:center;
+    color:var(--primary);
+    animation:ring-breath 3.4s ease-in-out infinite;
+    position:relative;
+  }
+  .welcome-cta .ring::before{
+    content:"";position:absolute;inset:-12px;
+    border-radius:50%;border:1px solid var(--primary);
+    opacity:0;animation:ring-pulse 3.4s ease-out infinite;
+  }
+  @keyframes ring-pulse{
+    0%{transform:scale(.85);opacity:.5}
+    100%{transform:scale(1.4);opacity:0}
+  }
+  @keyframes ring-breath{
+    0%,100%{transform:scale(1)}
+    50%{transform:scale(1.04)}
+  }
+  .welcome-cta .ring svg{width:30px;height:30px}
+  .welcome-cta .label{
+    font-size:22px;color:var(--ink-soft);
+    letter-spacing:.55em;text-indent:.55em;
+  }
+  .welcome-cta .label-en{
+    font-family:var(--serif-en);font-style:italic;
+    font-size:18px;color:var(--ink-mute);
+    letter-spacing:.18em;margin-top:4px;
+  }
+  .welcome-tagline-bottom{
+    position:absolute;bottom:60px;left:80px;
+    display:flex;align-items:center;gap:18px;
+  }
+  .welcome-tagline-bottom .seal{font-size:22px;width:42px;height:42px}
+  .welcome-tagline-bottom .text{
+    font-family:var(--brush);font-size:32px;color:var(--ink-soft);
+    letter-spacing:.3em;
+  }
+  .welcome-tagline-bottom .text-en{
+    font-family:var(--serif-en);font-style:italic;
+    font-size:18px;color:var(--ink-mute);
+    letter-spacing:.15em;margin-left:10px;
+  }
+  .welcome-vertical{top:80px;right:80px;font-size:22px;color:var(--ink-mute)}
+
+  /* ───────────────────────────────────────────────
+     PAGE 2：擇徑 (path)
+     ─────────────────────────────────────────────── */
+  .page-path{padding:140px 96px 80px}
+  .path-title{
+    text-align:center;margin-bottom:80px;
+  }
+  .path-title h2{
+    font-size:54px;color:var(--ink);font-weight:500;
+    letter-spacing:.4em;text-indent:.4em;margin-bottom:14px;
+  }
+  .path-title .en{
+    font-size:24px;color:var(--ink-mute);
+    letter-spacing:.15em;
+  }
+  .path-cards{
+    display:grid;grid-template-columns:1fr 1fr;gap:48px;
+    max-width:1500px;margin:0 auto;
+  }
+  .path-card{
+    background:var(--card);
+    border:1.4px solid var(--line-soft);
+    border-radius:24px;
+    padding:64px 56px;
+    cursor:pointer;
+    position:relative;overflow:hidden;
+    transition:all .4s cubic-bezier(.4,0,.2,1);
+    text-align:center;
+  }
+  .path-card::before{
+    content:"";position:absolute;inset:0;
+    background:radial-gradient(ellipse 600px 400px at 50% 50%,rgba(155,106,46,.06),transparent 70%);
+    opacity:0;transition:opacity .4s;
+  }
+  .path-card:hover{
+    transform:translateY(-6px);
+    border-color:var(--primary-soft);
+    box-shadow:0 24px 48px rgba(26,18,8,.10);
+  }
+  .path-card:hover::before{opacity:1}
+  .path-card .enso-stack{
+    width:160px;color:var(--primary);margin:0 auto 36px;
+  }
+  .path-card .enso-stack .glyph{
+    font-size:64px;color:var(--primary-deep);
+  }
+  .path-card .label-zh{
+    font-size:36px;color:var(--ink);font-weight:500;
+    letter-spacing:.4em;text-indent:.4em;margin-bottom:12px;
+  }
+  .path-card .label-en{
+    font-family:var(--serif-en);font-style:italic;
+    font-size:22px;color:var(--primary-deep);
+    letter-spacing:.06em;margin-bottom:24px;
+  }
+  .path-card .desc{
+    font-size:17px;color:var(--ink-soft);
+    letter-spacing:.18em;line-height:2;
+  }
+  .path-card .desc-en{
+    font-family:var(--serif-en);font-size:16px;
+    color:var(--ink-mute);letter-spacing:.04em;
+    line-height:1.7;margin-top:14px;
+  }
+  .path-card .recommended{
+    position:absolute;top:24px;right:24px;
+    background:var(--primary);color:#FAF6EC;
+    padding:6px 16px;border-radius:999px;
+    font-size:12px;letter-spacing:.3em;
+  }
+  .path-card .recommended-en{
+    font-family:var(--serif-en);font-style:italic;
+    font-size:11px;letter-spacing:.08em;
+  }
+
+  /* ───────────────────────────────────────────────
+     PAGE 3：問味 (profile)  3-step questionnaire
+     ─────────────────────────────────────────────── */
+  .page-profile{padding:140px 120px 60px;display:flex;flex-direction:column}
+  .profile-head{
+    display:flex;justify-content:space-between;align-items:center;
+    margin-bottom:24px;
+  }
+  .progress-pills{display:flex;gap:12px;align-items:center}
+  .progress-pills .pill{
+    width:48px;height:6px;border-radius:3px;
+    background:var(--line-soft);transition:background .4s;
+  }
+  .progress-pills .pill.on{background:var(--primary)}
+  .progress-pills .pill.done{background:var(--primary-soft)}
+  .progress-pills .step-label{
+    margin-left:14px;font-size:15px;color:var(--ink-mute);
+    letter-spacing:.25em;
+  }
+
+  .profile-stage{
+    flex:1;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:64px;
+    margin-top:-40px;
+  }
+  .profile-q{text-align:center;max-width:1200px}
+  .profile-q .num{
+    font-family:var(--brush);font-size:64px;
+    color:var(--primary-soft);line-height:1;margin-bottom:24px;
+  }
+  .profile-q .ask-zh{
+    font-size:48px;color:var(--ink);font-weight:500;
+    letter-spacing:.3em;text-indent:.3em;margin-bottom:14px;
+  }
+  .profile-q .ask-en{
+    font-family:var(--serif-en);font-style:italic;
+    font-size:26px;color:var(--ink-soft);
+    letter-spacing:.04em;margin-bottom:8px;
+  }
+  .profile-q .ask-hint{
+    font-size:15px;color:var(--ink-mute);
+    letter-spacing:.4em;margin-top:18px;
+  }
+
+  .chips-grid{
+    display:grid;grid-template-columns:repeat(4,1fr);gap:24px;
+    max-width:1380px;width:100%;
+  }
+  .chips-grid.col3{grid-template-columns:repeat(3,1fr);max-width:1100px;margin:0 auto}
+  .chip{
+    padding:36px 28px 32px;
+    background:var(--card);
+    border:1.4px solid var(--line-soft);
+    border-radius:18px;
+    cursor:pointer;
+    text-align:center;
+    transition:all .35s ease;
+    position:relative;
+  }
+  .chip:hover{
+    border-color:var(--primary-soft);
+    transform:translateY(-4px);
+    box-shadow:0 12px 28px rgba(26,18,8,.08);
+  }
+  .chip.on{
+    border-color:var(--primary);
+    background:linear-gradient(180deg,#FFFCF0 0%,var(--card) 100%);
+    box-shadow:0 0 0 4px rgba(155,106,46,.10),0 12px 28px rgba(26,18,8,.08);
+  }
+  .chip .glyph{
+    font-family:var(--brush);font-size:64px;
+    color:var(--primary-deep);line-height:1;margin-bottom:18px;
+  }
+  .chip .lbl-zh{
+    font-size:24px;color:var(--ink);font-weight:500;
+    letter-spacing:.35em;text-indent:.35em;margin-bottom:6px;
+  }
+  .chip .lbl-en{
+    font-family:var(--serif-en);font-style:italic;
+    font-size:18px;color:var(--ink-soft);letter-spacing:.04em;
+  }
+  .chip .lbl-tag{
+    margin-top:14px;font-size:13px;color:var(--ink-mute);
+    letter-spacing:.2em;
+  }
+  .chip.on .lbl-tag{color:var(--primary-deep)}
+  .chip.on::after{
+    content:"";position:absolute;top:14px;right:14px;
+    width:24px;height:24px;border-radius:50%;
+    background:var(--primary);
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'><polyline points='20 6 9 17 4 12'/></svg>");
+    background-size:14px;background-repeat:no-repeat;background-position:center;
+  }
+
+  .profile-foot{
+    display:flex;justify-content:space-between;align-items:center;
+    padding:0 60px;margin-bottom:24px;
+  }
+  .ghost-btn{
+    padding:14px 36px;
+    background:transparent;border:1px solid var(--line);
+    border-radius:999px;color:var(--ink-soft);
+    font-family:var(--serif);font-size:16px;letter-spacing:.4em;text-indent:.4em;
+    cursor:pointer;transition:all .3s;
+  }
+  .ghost-btn:hover{border-color:var(--primary);color:var(--primary-deep)}
+  .next-btn{
+    padding:18px 56px;
+    background:var(--primary);color:#FAF6EC;border:none;
+    border-radius:999px;
+    font-family:var(--serif);font-size:18px;letter-spacing:.55em;text-indent:.55em;
+    cursor:pointer;
+    box-shadow:0 8px 24px rgba(155,106,46,.25);
+    transition:all .3s;
+  }
+  .next-btn:hover{transform:translateY(-2px);box-shadow:0 12px 28px rgba(155,106,46,.32)}
+  .next-btn:disabled{
+    background:var(--line);color:#FFF;cursor:not-allowed;
+    box-shadow:none;
+  }
+
+  /* AI 思考過渡 */
+  .thinking-overlay{
+    position:absolute;inset:0;
+    background:var(--bg);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:32px;
+    opacity:0;pointer-events:none;
+    transition:opacity .6s ease;
+    z-index:5;
+  }
+  .thinking-overlay.show{opacity:1;pointer-events:auto}
+  .thinking-overlay .enso-stack{width:200px;color:var(--primary)}
+  .thinking-overlay .enso-stack .glyph{font-size:88px;color:var(--ink)}
+  .thinking-overlay .text-zh{
+    font-size:28px;color:var(--ink);
+    letter-spacing:.5em;text-indent:.5em;
+  }
+  .thinking-overlay .text-en{
+    font-family:var(--serif-en);font-style:italic;
+    font-size:22px;color:var(--ink-soft);
+    letter-spacing:.06em;
+  }
+  .thinking-overlay .dots{display:flex;gap:8px}
+  .thinking-overlay .dots span{
+    width:8px;height:8px;border-radius:50%;
+    background:var(--primary);
+    animation:thinking 1.4s ease-in-out infinite;
+  }
+  .thinking-overlay .dots span:nth-child(2){animation-delay:.2s}
+  .thinking-overlay .dots span:nth-child(3){animation-delay:.4s}
+  @keyframes thinking{
+    0%,80%,100%{transform:scale(.6);opacity:.4}
+    40%{transform:scale(1);opacity:1}
+  }
+
+  /* ───────────────────────────────────────────────
+     PAGE 4：薦茶 (recommend) — AI 三杯推薦
+     ─────────────────────────────────────────────── */
+  .page-recommend{padding:140px 96px 60px;display:flex;flex-direction:column}
+  .rec-head{text-align:center;margin-bottom:48px}
+  .rec-head .lead-zh{
+    font-size:42px;color:var(--ink);font-weight:500;
+    letter-spacing:.3em;text-indent:.3em;margin-bottom:12px;
+  }
+  .rec-head .lead-zh em{
+    font-style:normal;color:var(--primary);
+    border-bottom:2px solid currentColor;padding-bottom:2px;
+  }
+  .rec-head .lead-en{
+    font-family:var(--serif-en);font-style:italic;
+    font-size:22px;color:var(--ink-soft);
+    letter-spacing:.06em;
+  }
+  .rec-head .your-tags{
+    margin-top:18px;display:flex;justify-content:center;gap:10px;flex-wrap:wrap;
+  }
+  .rec-head .your-tags .tag{
+    padding:6px 16px;background:rgba(155,106,46,.10);
+    color:var(--primary-deep);
+    border-radius:999px;font-size:14px;letter-spacing:.2em;
+  }
+
+  .rec-cards{
+    display:grid;grid-template-columns:1fr 1.1fr 1fr;gap:32px;
+    max-width:1700px;margin:0 auto;flex:1;align-items:stretch;
+  }
+  .rec-card{
+    background:var(--card);
+    border:1.4px solid var(--line-soft);
+    border-radius:24px;
+    padding:44px 40px 36px;
+    display:flex;flex-direction:column;
+    cursor:pointer;
+    transition:all .4s cubic-bezier(.4,0,.2,1);
+    position:relative;overflow:hidden;
+  }
+  .rec-card.featured{
+    border-color:var(--primary);
+    background:linear-gradient(180deg,#FFFCF0 0%,var(--card) 100%);
+    box-shadow:0 16px 40px rgba(155,106,46,.15);
+    transform:translateY(-12px);
+  }
+  .rec-card:hover{
+    transform:translateY(-16px);
+    box-shadow:0 24px 48px rgba(26,18,8,.12);
+    border-color:var(--primary-soft);
+  }
+  .rec-card .badge{
+    position:absolute;top:0;right:32px;
+    padding:8px 20px;
+    background:var(--primary);color:#FAF6EC;
+    border-radius:0 0 12px 12px;
+    font-size:13px;letter-spacing:.3em;
+  }
+  .rec-card .badge-en{
+    font-family:var(--serif-en);font-style:italic;
+    font-size:11px;letter-spacing:.06em;
+    margin-left:6px;
+  }
+
+  /* SVG 茶杯插畫 */
+  .tea-cup{
+    width:200px;height:200px;margin:8px auto 24px;
+    display:block;
+  }
+  .rec-card.featured .tea-cup{width:240px;height:240px}
+
+  .rec-card .name-zh{
+    text-align:center;font-size:32px;color:var(--ink);
+    font-weight:600;letter-spacing:.2em;text-indent:.2em;
+    margin-bottom:6px;
+  }
+  .rec-card.featured .name-zh{font-size:36px}
+  .rec-card .name-en{
+    text-align:center;
+    font-family:var(--serif-en);font-style:italic;
+    font-size:20px;color:var(--primary-deep);
+    letter-spacing:.04em;margin-bottom:4px;
+  }
+  .rec-card .name-pinyin{
+    text-align:center;
+    font-family:var(--serif-en);
+    font-size:13px;color:var(--ink-mute);
+    letter-spacing:.2em;text-transform:uppercase;
+    margin-bottom:20px;
+  }
+
+  .flavor-tags{
+    display:flex;justify-content:center;flex-wrap:wrap;gap:8px;
+    margin-bottom:22px;
+  }
+  .flavor-tags .tag{
+    padding:6px 14px;
+    background:var(--surface);
+    border:1px solid var(--line-soft);
+    border-radius:999px;
+    font-size:13px;color:var(--ink-soft);
+    letter-spacing:.15em;
+  }
+  .flavor-tags .tag .en{font-size:11px;color:var(--ink-mute);margin-left:4px}
+
+  .rec-reason{
+    margin-top:auto;padding-top:20px;
+    border-top:1px dashed var(--line-soft);
+  }
+  .rec-reason .head{
+    font-size:13px;color:var(--primary-deep);
+    letter-spacing:.4em;margin-bottom:10px;
+    display:flex;align-items:center;gap:8px;
+  }
+  .rec-reason .head::before{
+    content:"";width:18px;height:1px;background:var(--primary);
+  }
+  .rec-reason .head-en{
+    font-family:var(--serif-en);font-style:italic;
+    font-size:11px;color:var(--ink-mute);
+    letter-spacing:.06em;margin-left:6px;
+  }
+  .rec-reason .body-zh{
+    font-size:15px;color:var(--ink);line-height:1.8;
+    letter-spacing:.1em;margin-bottom:8px;
+  }
+  .rec-reason .body-en{
+    font-family:var(--serif-en);
+    font-size:14px;color:var(--ink-soft);
+    line-height:1.6;letter-spacing:.02em;
+  }
+
+  .rec-card .price-cta{
+    margin-top:18px;
+    display:flex;justify-content:space-between;align-items:center;
+    padding-top:18px;border-top:1px solid var(--line-soft);
+  }
+  .rec-card .price{
+    font-family:var(--brush);font-size:32px;color:var(--primary-deep);
+  }
+  .rec-card .price small{
+    font-family:var(--serif-en);font-style:italic;
+    font-size:14px;color:var(--ink-mute);margin-right:4px;
+  }
+  .rec-card .view-btn{
+    padding:10px 22px;
+    border:1px solid var(--primary);
+    border-radius:999px;
+    color:var(--primary-deep);
+    font-size:14px;letter-spacing:.3em;
+    background:transparent;cursor:pointer;
+    transition:all .3s;
+  }
+  .rec-card.featured .view-btn{
+    background:var(--primary);color:#FAF6EC;
+  }
+  .rec-card .view-btn .en{
+    font-size:11px;letter-spacing:.04em;margin-left:4px;
+  }
+
+  .rec-foot{
+    text-align:center;margin-top:40px;
+  }
+  .rec-foot .browse-link{
+    display:inline-flex;align-items:center;gap:14px;
+    padding:14px 32px;
+    border-bottom:1px solid var(--line);
+    color:var(--ink-soft);
+    font-size:16px;letter-spacing:.35em;
+    cursor:pointer;
+    transition:all .3s;
+  }
+  .rec-foot .browse-link:hover{color:var(--primary-deep);border-color:var(--primary)}
+  .rec-foot .browse-link .en{
+    font-style:italic;font-size:14px;letter-spacing:.04em;
+  }
+
+  /* ───────────────────────────────────────────────
+     PAGE 5：品茶 (detail) — 茶品詳細
+     ─────────────────────────────────────────────── */
+  .page-detail{
+    padding:140px 80px 60px;
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:64px;
+  }
+  /* 左側：可翻面的茶卡片（front=插畫, back=細品此茶） */
+  .detail-left{
+    position:relative;
+    perspective:1800px;
+    min-height:680px;
+  }
+  .flip-inner{
+    position:relative;width:100%;height:100%;min-height:680px;
+    transform-style:preserve-3d;
+    transition:transform .85s cubic-bezier(.7,.15,.25,1);
+  }
+  .detail-left.flipped .flip-inner{transform:rotateY(180deg)}
+  .flip-face{
+    position:absolute;inset:0;
+    backface-visibility:hidden;-webkit-backface-visibility:hidden;
+    background:var(--card);
+    border-radius:32px;
+    overflow:hidden;
+  }
+  .flip-front{
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    padding:48px;
+  }
+  .flip-front::before{
+    content:"";position:absolute;inset:0;
+    background:radial-gradient(ellipse 500px 400px at 50% 40%,
+      rgba(155,106,46,.10),transparent 70%);
+    pointer-events:none;
+  }
+  .flip-back{
+    transform:rotateY(180deg);
+    padding:36px 32px 90px;
+    display:flex;flex-direction:column;gap:16px;
+    overflow-y:auto;
+  }
+  .flip-back::-webkit-scrollbar{width:6px}
+  .flip-back::-webkit-scrollbar-thumb{background:var(--line);border-radius:3px}
+  /* 翻面切換按鈕：右下圓鈕（避免與全域 mic FAB 重疊） */
+  .flip-toggle{
+    position:absolute;right:24px;bottom:24px;z-index:6;
+    height:46px;padding:0 18px 0 14px;border-radius:999px;
+    border:1px solid var(--line);
+    background:rgba(250,246,236,.92);backdrop-filter:blur(6px);
+    color:var(--ink);font-family:var(--serif);font-size:13px;
+    letter-spacing:.3em;cursor:pointer;
+    display:flex;align-items:center;gap:8px;
+    box-shadow:0 6px 18px rgba(60,40,20,.10);
+    -webkit-tap-highlight-color:transparent;
+    transition:transform .15s ease;
+  }
+  .flip-toggle:active{transform:scale(.96)}
+  .flip-toggle .ic{
+    display:inline-flex;align-items:center;justify-content:center;
+    width:26px;height:26px;border-radius:50%;
+    background:var(--primary);color:#FAF6EC;font-size:14px;
+    transition:transform .85s cubic-bezier(.7,.15,.25,1);
+  }
+  .detail-left.flipped .flip-toggle .ic{transform:rotate(180deg)}
+  body[data-lang="en"] .flip-toggle{font-family:var(--serif-en);font-style:italic;letter-spacing:.04em;font-size:14px}
+  /* 翻面後 toggle 文字切換 */
+  .flip-toggle .lbl-back{display:none}
+  .detail-left.flipped .flip-toggle .lbl-front{display:none}
+  .detail-left.flipped .flip-toggle .lbl-back{display:inline}
+
+  .detail-tea-cup{width:380px;height:380px;z-index:1}
+  .detail-stamp{
+    position:absolute;bottom:48px;left:48px;
+    display:flex;align-items:center;gap:14px;
+    z-index:2;
+  }
+  .detail-stamp .seal{font-size:24px;width:48px;height:48px}
+  .detail-stamp .text{
+    font-family:var(--brush);font-size:24px;color:var(--ink-soft);
+    letter-spacing:.25em;
+  }
+  .detail-vertical{
+    position:absolute;top:48px;right:32px;
+    writing-mode:vertical-rl;
+    font-family:var(--brush);
+    font-size:18px;color:var(--ink-mute);
+    letter-spacing:.4em;z-index:2;
+  }
+
+  .detail-right{
+    display:flex;flex-direction:column;gap:18px;
+    max-height:880px;overflow-y:auto;padding-right:8px;
+  }
+  .detail-right::-webkit-scrollbar{width:6px}
+  .detail-right::-webkit-scrollbar-track{background:transparent}
+  .detail-right::-webkit-scrollbar-thumb{background:var(--line);border-radius:3px}
+  .detail-name{
+    padding-bottom:24px;border-bottom:1px solid var(--line-soft);
+  }
+  .detail-name .zh{
+    font-size:54px;color:var(--ink);font-weight:600;
+    letter-spacing:.2em;text-indent:.2em;line-height:1.1;margin-bottom:10px;
+  }
+  .detail-name .en{
+    font-family:var(--serif-en);font-style:italic;
+    font-size:30px;color:var(--primary-deep);
+    letter-spacing:.04em;margin-bottom:4px;
+  }
+  .detail-name .pinyin{
+    font-family:var(--serif-en);
+    font-size:14px;color:var(--ink-mute);
+    letter-spacing:.25em;text-transform:uppercase;
+  }
+  .detail-meta{
+    display:flex;gap:32px;
+    padding:20px 0;
+    border-bottom:1px solid var(--line-soft);
+  }
+  .detail-meta .item{flex:1;text-align:center}
+  .detail-meta .item .lbl{
+    font-size:12px;color:var(--ink-mute);
+    letter-spacing:.3em;margin-bottom:6px;
+  }
+  .detail-meta .item .lbl-en{
+    font-family:var(--serif-en);font-style:italic;
+    font-size:11px;letter-spacing:.04em;
+  }
+  .detail-meta .item .val{
+    font-size:18px;color:var(--ink);font-weight:500;
+    letter-spacing:.15em;
+  }
+
+  /* 風味雷達 */
+  .detail-flavor{
+    background:var(--surface);
+    border-radius:18px;
+    padding:24px;
+    display:grid;grid-template-columns:auto 1fr;gap:24px;align-items:center;
+  }
+  .flavor-radar{width:200px;height:200px}
+  .flavor-list{flex:1}
+  .flavor-list .row{
+    display:grid;grid-template-columns:90px 1fr auto;
+    gap:14px;align-items:center;
+    padding:8px 0;
+  }
+  .flavor-list .row .lbl{
+    font-size:14px;color:var(--ink-soft);letter-spacing:.2em;
+  }
+  .flavor-list .row .lbl small{
+    font-family:var(--serif-en);font-style:italic;
+    font-size:11px;color:var(--ink-mute);margin-left:4px;
+  }
+  .flavor-list .row .bar{
+    height:6px;background:var(--line-soft);border-radius:3px;overflow:hidden;
+  }
+  .flavor-list .row .bar i{
+    display:block;height:100%;background:var(--primary);
+    border-radius:3px;transition:width .8s ease;
+  }
+  .flavor-list .row .val{
+    font-size:13px;color:var(--ink-mute);min-width:30px;text-align:right;
+  }
+
+  /* 風味描述 */
+  .detail-desc{
+    background:var(--card);
+    border-radius:18px;
+    padding:24px 28px;
+    border:1px solid var(--line-soft);
+  }
+  .detail-desc .head{
+    display:flex;align-items:center;gap:10px;margin-bottom:14px;
+  }
+  .detail-desc .head .seal{
+    font-size:14px;width:28px;height:28px;
+  }
+  .detail-desc .head .ttl{
+    font-size:17px;color:var(--ink);font-weight:500;
+    letter-spacing:.3em;
+  }
+  .detail-desc .head .ttl-en{
+    font-family:var(--serif-en);font-style:italic;
+    font-size:14px;color:var(--ink-mute);letter-spacing:.04em;
+    margin-left:6px;
+  }
+  .detail-desc .body-zh{
+    font-size:16px;color:var(--ink);line-height:1.95;
+    letter-spacing:.08em;margin-bottom:12px;
+  }
+  .detail-desc .body-en{
+    font-family:var(--serif-en);
+    font-size:15px;color:var(--ink-soft);
+    line-height:1.7;letter-spacing:.02em;
+  }
+
+  /* 客製化 — 真實數據版（多選項目使用 wrap chips） */
+  .detail-custom{
+    display:flex;flex-direction:column;gap:12px;
+  }
+  .custom-group{
+    background:var(--card);
+    border:1px solid var(--line-soft);
+    border-radius:14px;
+    padding:14px 16px 12px;
+  }
+  .custom-group .lbl{
+    font-size:13px;color:var(--ink-mute);
+    letter-spacing:.3em;margin-bottom:10px;
+    display:block;
+  }
+  .custom-group .lbl-en{
+    font-size:13px;color:var(--ink-mute);
+    margin-bottom:10px;display:block;
+    font-family:var(--serif-en);font-style:italic;letter-spacing:.06em;
+  }
+  .custom-group .opts{display:flex;gap:6px;flex-wrap:wrap}
+  .custom-group .opts button{
+    padding:9px 14px;
+    background:transparent;border:1px solid var(--line);
+    border-radius:999px;
+    font-family:var(--serif);font-size:13px;
+    color:var(--ink-soft);cursor:pointer;letter-spacing:.18em;
+    transition:all .25s;
+    -webkit-tap-highlight-color:transparent;
+    white-space:nowrap;
+    display:inline-flex;align-items:center;gap:4px;
+  }
+  .custom-group[data-opt-type="size"] .opts button,
+  .custom-group[data-opt-type="sugar"] .opts button,
+  .custom-group[data-opt-type="ice"] .opts button{
+    flex:1 1 0;min-width:64px;justify-content:center;letter-spacing:.15em;
+  }
+  .custom-group .opts button:active{transform:scale(.95)}
+  .custom-group .opts button.on{
+    background:var(--primary);color:#FAF6EC;border-color:var(--primary);
+    box-shadow:0 4px 12px rgba(155,106,46,.25);
+  }
+  .custom-group .opts button .plus{
+    font-family:var(--serif-en);font-size:11px;color:var(--vermilion);
+    letter-spacing:0;margin-left:2px;
+  }
+  .custom-group .opts button.on .plus{color:rgba(255,246,236,.85)}
+  body[data-lang="en"] .custom-group .opts button{
+    font-family:var(--serif-en);font-style:normal;font-weight:500;letter-spacing:.04em;font-size:14px;
+  }
+
+  /* 加入茶籃 */
+  .detail-actions{
+    display:flex;gap:14px;margin-top:auto;
+  }
+  .qty-stepper{
+    display:flex;align-items:center;
+    background:var(--card);
+    border:1px solid var(--line);border-radius:12px;
+    overflow:hidden;
+  }
+  .qty-stepper button{
+    width:54px;height:60px;border:none;background:transparent;
+    font-family:var(--serif-en);font-size:24px;font-weight:500;color:var(--ink);cursor:pointer;
+    transition:background .2s;
+  }
+  .qty-stepper button:hover{background:var(--surface)}
+  .qty-stepper .n{
+    width:52px;text-align:center;
+    font-family:var(--serif-en);font-size:24px;font-weight:600;
+    color:var(--primary-deep);font-variant-numeric:tabular-nums;
+  }
+  .add-btn{
+    flex:1;display:flex;align-items:center;justify-content:center;gap:18px;
+    background:var(--primary);color:#FAF6EC;
+    border:none;border-radius:12px;
+    font-family:var(--serif);font-size:20px;
+    letter-spacing:.5em;text-indent:.5em;cursor:pointer;
+    box-shadow:0 6px 18px rgba(155,106,46,.20);
+    transition:all .3s;
+    padding:0 24px;
+  }
+  .add-btn:hover{transform:translateY(-2px);box-shadow:0 10px 24px rgba(155,106,46,.28)}
+  .add-btn .price{
+    display:inline-flex;align-items:baseline;gap:4px;
+    background:rgba(255,255,255,.16);
+    padding:6px 14px;border-radius:999px;
+    font-family:var(--serif-en);font-weight:600;font-size:22px;
+    letter-spacing:.02em;text-indent:0;color:#FFF6E5;
+  }
+  .add-btn .price small{
+    font-family:var(--serif-en);font-size:11px;font-style:normal;
+    font-weight:500;letter-spacing:.12em;opacity:.85;text-transform:uppercase;
+  }
+
+  /* ───────────────────────────────────────────────
+     AI 侍茶互動元件 (Sommelier widgets)
+     ─────────────────────────────────────────────── */
+  .sommelier-note{
+    display:flex;align-items:flex-start;gap:14px;
+    padding:14px 18px;
+    background:linear-gradient(120deg,rgba(155,106,46,.08),rgba(200,165,116,.10));
+    border:1px solid rgba(155,106,46,.20);
+    border-radius:14px;
+    position:relative;
+  }
+  .sommelier-note .avatar{
+    width:46px;height:46px;flex-shrink:0;
+    display:flex;align-items:center;justify-content:center;
+    position:relative;color:var(--primary);
+  }
+  .sommelier-note .avatar svg{
+    position:absolute;inset:0;width:100%;height:100%;
+    transform:rotate(-12deg);
+    stroke:currentColor;stroke-width:2.4;fill:none;stroke-linecap:round;
+  }
+  .sommelier-note .avatar .glyph{
+    font-family:var(--brush);font-size:24px;color:var(--primary-deep);z-index:1;
+  }
+  .sommelier-note .content{flex:1;min-width:0}
+  .sommelier-note .head-line{
+    display:flex;align-items:baseline;gap:10px;margin-bottom:6px;
+  }
+  .sommelier-note .head-line .ttl{
+    font-size:13px;color:var(--primary-deep);letter-spacing:.4em;font-weight:500;
+  }
+  .sommelier-note .head-line .ttl-en{
+    font-family:var(--serif-en);font-style:italic;
+    font-size:12px;color:var(--ink-mute);letter-spacing:.06em;
+  }
+  .sommelier-note .body-zh{
+    font-size:13px;color:var(--ink);line-height:1.75;letter-spacing:.08em;
+  }
+  .sommelier-note .body-en{
+    font-family:var(--serif-en);
+    font-size:13px;color:var(--ink-soft);line-height:1.55;letter-spacing:.02em;
+    margin-top:4px;
+  }
+
+  /* AI 客製化提醒（reactive） */
+  .ai-hint{
+    display:flex;align-items:flex-start;gap:12px;
+    padding:14px 18px;
+    border-radius:14px;
+    transition:all .35s ease;
+    animation:hint-in .4s cubic-bezier(.4,0,.2,1);
+  }
+  @keyframes hint-in{
+    from{opacity:0;transform:translateY(-6px)}
+    to{opacity:1;transform:translateY(0)}
+  }
+  .ai-hint.empty{display:none}
+  .ai-hint[data-level="tip"]{
+    background:rgba(123,166,122,.10);
+    border:1px solid rgba(123,166,122,.30);
+  }
+  .ai-hint[data-level="warn"]{
+    background:rgba(184,64,64,.08);
+    border:1px solid rgba(184,64,64,.28);
+  }
+  .ai-hint[data-level="info"]{
+    background:rgba(155,106,46,.08);
+    border:1px dashed rgba(155,106,46,.35);
+  }
+  .ai-hint .avatar{
+    width:34px;height:34px;flex-shrink:0;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    font-family:var(--brush);font-size:18px;
+    background:var(--card);
+    border:1px solid var(--line-soft);
+    color:var(--primary-deep);
+  }
+  .ai-hint[data-level="warn"] .avatar{color:var(--vermilion);border-color:rgba(184,64,64,.35)}
+  .ai-hint[data-level="tip"] .avatar{color:#5a7a3a;border-color:rgba(123,166,122,.40)}
+  .ai-hint .content{flex:1;min-width:0}
+  .ai-hint .lvl-badge{
+    display:inline-block;padding:3px 12px;border-radius:999px;
+    font-size:11px;letter-spacing:.3em;
+    background:rgba(255,255,255,.55);
+    color:var(--ink-soft);
+    margin-bottom:6px;
+  }
+  .ai-hint[data-level="warn"] .lvl-badge{background:rgba(184,64,64,.18);color:var(--vermilion)}
+  .ai-hint[data-level="tip"] .lvl-badge{background:rgba(123,166,122,.20);color:#4d6a32}
+  .ai-hint .lvl-badge .en{
+    font-family:var(--serif-en);font-style:italic;
+    font-size:10px;letter-spacing:.06em;margin-left:4px;
+  }
+  .ai-hint .msg-zh{
+    font-size:14px;color:var(--ink);line-height:1.65;letter-spacing:.08em;
+  }
+  .ai-hint .msg-en{
+    font-family:var(--serif-en);
+    font-size:13px;color:var(--ink-soft);line-height:1.5;letter-spacing:.02em;
+    margin-top:3px;
+  }
+  .ai-hint .apply-btn{
+    margin-top:8px;padding:6px 14px;
+    background:var(--card);border:1px solid var(--line);border-radius:999px;
+    font-family:var(--serif);font-size:12px;color:var(--ink);letter-spacing:.2em;
+    cursor:pointer;transition:all .3s;
+  }
+  .ai-hint .apply-btn:hover{
+    background:var(--primary);color:#FAF6EC;border-color:var(--primary);
+  }
+  .ai-hint .apply-btn .en{
+    font-family:var(--serif-en);font-style:italic;font-size:11px;
+    letter-spacing:.06em;margin-left:6px;
+  }
+
+  /* 禁忌選項（forbidden customization option） */
+  .custom-group .opts button.forbidden{
+    position:relative;
+    background:rgba(0,0,0,.04);
+    border-color:var(--line-soft);
+    color:var(--ink-mute);
+    cursor:not-allowed;
+    text-decoration:line-through;
+    text-decoration-color:var(--vermilion);
+    text-decoration-thickness:1.4px;
+  }
+  .custom-group .opts button.forbidden::after{
+    content:"";
+    position:absolute;top:-5px;right:-5px;
+    width:14px;height:14px;border-radius:50%;
+    background:var(--vermilion);
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.5' stroke-linecap='round'><line x1='5' y1='5' x2='19' y2='19'/><line x1='19' y1='5' x2='5' y2='19'/></svg>");
+    background-size:9px;background-repeat:no-repeat;background-position:center;
+  }
+  .custom-group .opts button.forbidden:hover{background:rgba(0,0,0,.04)}
+
+  /* 同款好搭 / Pairing */
+  .pairing-card{
+    background:var(--card);
+    border:1px solid var(--line-soft);
+    border-radius:18px;
+    padding:18px 20px;
+  }
+  .pairing-card .head{
+    display:flex;align-items:center;gap:12px;
+    padding-bottom:12px;margin-bottom:12px;
+    border-bottom:1px solid var(--line-soft);
+  }
+  .pairing-card .head .seal{font-size:13px;width:28px;height:28px}
+  .pairing-card .head .ttl-zh{
+    font-size:15px;color:var(--ink);font-weight:500;letter-spacing:.3em;
+  }
+  .pairing-card .head .ttl-en{
+    font-family:var(--serif-en);font-style:italic;
+    font-size:12px;color:var(--ink-mute);letter-spacing:.06em;margin-left:auto;
+  }
+  .pairing-card .body{
+    display:grid;grid-template-columns:repeat(3,1fr);gap:10px;
+  }
+  .pair-item{
+    text-align:center;padding:12px 6px;
+    background:var(--surface);
+    border-radius:10px;
+  }
+  .pair-item .ico{
+    font-family:var(--brush);font-size:26px;color:var(--primary-deep);
+    line-height:1;margin-bottom:6px;
+  }
+  .pair-item .lbl-zh{
+    font-size:12px;color:var(--ink);letter-spacing:.18em;
+  }
+  .pair-item .lbl-en{
+    font-family:var(--serif-en);font-style:italic;
+    font-size:10px;color:var(--ink-mute);letter-spacing:.04em;margin-top:2px;
+  }
+
+  /* 侍茶為我配 — Apply Best Preset */
+  .sommelier-best{
+    margin-top:12px;
+    display:flex;align-items:center;gap:12px;
+    padding:12px 16px;
+    background:rgba(155,106,46,.08);
+    border:1px dashed var(--primary-soft);
+    border-radius:12px;
+    cursor:pointer;
+    transition:all .3s;
+  }
+  .sommelier-best:hover{
+    background:rgba(155,106,46,.16);
+    transform:translateY(-1px);
+    border-style:solid;
+  }
+  .sommelier-best .stroke{
+    font-family:var(--brush);font-size:24px;color:var(--primary);line-height:1;flex-shrink:0;
+  }
+  .sommelier-best .text{flex:1}
+  .sommelier-best .text-zh{font-size:13px;color:var(--ink);letter-spacing:.2em;display:block}
+  .sommelier-best .text-en{
+    font-family:var(--serif-en);font-style:italic;
+    font-size:11px;color:var(--ink-mute);letter-spacing:.04em;display:block;margin-top:2px;
+  }
+  .sommelier-best .arrow{font-size:18px;color:var(--primary)}
+
+  /* ───────────────────────────────────────────────
+     PAGE 6：茶單 (menu) — 傳統格狀
+     ─────────────────────────────────────────────── */
+  .page-menu{
+    padding:120px 0 0;display:flex;
+  }
+  .menu-main{flex:1;padding:0 56px 24px;display:flex;flex-direction:column;overflow:hidden}
+  .menu-tabs{
+    display:flex;gap:8px;padding-bottom:18px;
+    border-bottom:1px solid var(--line-soft);margin-bottom:24px;
+    overflow-x:auto;
+  }
+  .menu-tab{
+    padding:14px 28px;
+    background:transparent;border:none;
+    font-family:var(--serif);font-size:18px;color:var(--ink-mute);
+    letter-spacing:.3em;cursor:pointer;
+    border-bottom:2px solid transparent;
+    transition:all .3s;flex-shrink:0;
+  }
+  .menu-tab .en{
+    display:block;font-family:var(--serif-en);font-style:italic;
+    font-size:12px;color:inherit;letter-spacing:.04em;margin-top:2px;
+  }
+  .menu-tab.on{color:var(--primary-deep);border-color:var(--primary)}
+  .menu-tab:hover{color:var(--ink-soft)}
+
+  .menu-grid{
+    flex:1;overflow-y:auto;
+    display:grid;grid-template-columns:repeat(3,1fr);gap:24px;
+    padding-right:8px;padding-bottom:8px;
+  }
+  .menu-grid::-webkit-scrollbar{width:8px}
+  .menu-grid::-webkit-scrollbar-track{background:transparent}
+  .menu-grid::-webkit-scrollbar-thumb{background:var(--line);border-radius:4px}
+  .menu-card{
+    background:var(--card);border:1px solid var(--line-soft);
+    border-radius:18px;padding:24px;
+    cursor:pointer;
+    display:flex;align-items:center;gap:18px;
+    transition:all .3s;
+  }
+  .menu-card:hover{
+    border-color:var(--primary-soft);
+    transform:translateY(-3px);
+    box-shadow:0 12px 24px rgba(26,18,8,.08);
+  }
+  .menu-card .tea-cup{width:88px;height:88px;margin:0;flex-shrink:0}
+  .menu-card .info{flex:1;min-width:0}
+  .menu-card .name-zh{
+    font-size:20px;color:var(--ink);font-weight:500;
+    letter-spacing:.18em;margin-bottom:2px;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  }
+  .menu-card .name-en{
+    font-family:var(--serif-en);font-style:italic;
+    font-size:14px;color:var(--ink-soft);
+    letter-spacing:.04em;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  }
+  .menu-card .price{
+    font-family:var(--brush);font-size:24px;color:var(--primary-deep);
+    margin-top:8px;
+  }
+  .menu-card .price small{
+    font-family:var(--serif-en);font-style:italic;
+    font-size:11px;color:var(--ink-mute);margin-right:3px;
+  }
+  .menu-card .info-btn{
+    margin-top:6px;font-size:11px;color:var(--primary);
+    letter-spacing:.2em;
+  }
+
+  /* 右側：迷你購物籃 + AI 助手按鈕 */
+  .menu-side{
+    width:420px;background:var(--card);
+    border-left:1px solid var(--line-soft);
+    padding:36px 32px 28px;
+    display:flex;flex-direction:column;
+    position:relative;
+  }
+  .menu-cart-head{
+    display:flex;justify-content:space-between;align-items:baseline;
+    margin-bottom:18px;padding-bottom:14px;
+    border-bottom:1px solid var(--line-soft);
+  }
+  .menu-cart-head .ttl{
+    font-size:22px;color:var(--ink);font-weight:500;letter-spacing:.4em;
+  }
+  .menu-cart-head .ttl-en{
+    font-family:var(--serif-en);font-style:italic;
+    font-size:14px;color:var(--ink-mute);letter-spacing:.06em;margin-left:8px;
+  }
+  .menu-cart-head .count{
+    font-family:var(--serif-en);font-size:24px;font-weight:600;
+    color:var(--primary);font-variant-numeric:tabular-nums;
+    background:rgba(155,106,46,.12);
+    min-width:34px;height:34px;border-radius:50%;
+    display:inline-flex;align-items:center;justify-content:center;
+  }
+  .menu-cart-list{
+    flex:1;overflow-y:auto;
+  }
+  .menu-cart-list .empty{
+    text-align:center;padding:48px 24px;color:var(--ink-mute);
+  }
+  .menu-cart-list .empty .glyph{
+    font-family:var(--brush);font-size:80px;color:var(--line);margin-bottom:14px;
+  }
+  .menu-cart-list .empty .text-zh{font-size:16px;letter-spacing:.4em}
+  .menu-cart-list .empty .text-en{
+    font-family:var(--serif-en);font-style:italic;
+    font-size:14px;letter-spacing:.06em;margin-top:6px;
+  }
+  .menu-cart-list .row{
+    display:grid;grid-template-columns:1fr auto;gap:8px;
+    padding:14px 0;border-bottom:1px dashed var(--line-soft);
+  }
+  .menu-cart-list .row .name{font-size:16px;color:var(--ink);letter-spacing:.1em}
+  .menu-cart-list .row .name .en{
+    display:block;font-size:12px;color:var(--ink-mute);margin-top:2px;letter-spacing:.04em;
+  }
+  .menu-cart-list .row .meta{font-size:12px;color:var(--ink-mute);margin-top:4px;letter-spacing:.15em}
+  .menu-cart-list .row .price{
+    font-family:var(--brush);font-size:20px;color:var(--primary);
+    align-self:start;
+  }
+
+  .menu-cart-foot{
+    margin-top:auto;padding-top:18px;border-top:1px solid var(--line);
+  }
+  .menu-cart-foot .total{
+    display:flex;justify-content:space-between;align-items:baseline;
+    margin-bottom:14px;
+  }
+  .menu-cart-foot .total .lbl{
+    font-size:15px;color:var(--ink-soft);letter-spacing:.4em;
+  }
+  .menu-cart-foot .total .num{
+    font-family:var(--brush);font-size:42px;color:var(--primary-deep);line-height:1;
+  }
+  .menu-cart-foot .total .num small{
+    font-family:var(--serif-en);font-style:italic;
+    font-size:14px;color:var(--ink-mute);margin-right:5px;
+  }
+  .menu-checkout{
+    width:100%;height:64px;
+    background:var(--primary);color:#FAF6EC;
+    border:none;border-radius:12px;
+    font-family:var(--serif);font-size:20px;letter-spacing:.6em;text-indent:.6em;
+    cursor:pointer;
+    box-shadow:0 6px 20px rgba(155,106,46,.22);
+    transition:all .3s;
+  }
+  .menu-checkout:hover{transform:translateY(-2px);box-shadow:0 10px 26px rgba(155,106,46,.30)}
+  .menu-checkout .en{
+    font-family:var(--serif-en);font-style:italic;
+    font-size:13px;letter-spacing:.06em;text-indent:0;margin-left:8px;
+  }
+
+  /* AI 浮動入口（改為一般流，避免與結帳鈕重疊） */
+  .ai-floater{
+    margin-top:14px;
+    display:flex;align-items:center;gap:12px;
+    padding:12px 16px;
+    background:linear-gradient(120deg,rgba(155,106,46,.10),rgba(200,165,116,.10));
+    border:1px dashed var(--primary-soft);
+    border-radius:14px;
+    cursor:pointer;
+    transition:all .3s;
+  }
+  .ai-floater:hover{
+    background:linear-gradient(120deg,rgba(155,106,46,.18),rgba(200,165,116,.18));
+    transform:translateY(-2px);
+  }
+  .ai-floater .stroke{
+    font-family:var(--brush);font-size:32px;color:var(--primary);
+    line-height:1;flex-shrink:0;
+  }
+  .ai-floater .text-zh{
+    font-size:14px;color:var(--ink);letter-spacing:.2em;
+  }
+  .ai-floater .text-en{
+    font-family:var(--serif-en);font-style:italic;
+    font-size:12px;color:var(--ink-soft);letter-spacing:.04em;margin-top:2px;
+  }
+  .ai-floater .arrow{
+    margin-left:auto;font-size:20px;color:var(--primary);
+  }
+
+  /* ───────────────────────────────────────────────
+     PAGE 7：茶籃 (cart) — 結帳頁
+     ─────────────────────────────────────────────── */
+  .page-cart{padding:140px 96px 60px;display:flex;flex-direction:column}
+  .cart-h2{margin-bottom:36px}
+  .cart-h2 .zh{
+    font-size:42px;color:var(--ink);font-weight:500;
+    letter-spacing:.4em;text-indent:.4em;margin-bottom:8px;
+  }
+  .cart-h2 .en{
+    font-family:var(--serif-en);font-style:italic;
+    font-size:24px;color:var(--ink-soft);letter-spacing:.06em;
+  }
+  .cart-grid{
+    display:grid;grid-template-columns:1.4fr 1fr;gap:48px;flex:1;
+  }
+  .cart-items{
+    background:var(--card);
+    border-radius:24px;
+    padding:32px 36px;
+    overflow-y:auto;
+  }
+  .cart-item{
+    display:grid;grid-template-columns:auto 1fr auto auto auto;
+    gap:20px;align-items:center;
+    padding:20px 0;border-bottom:1px dashed var(--line-soft);
+  }
+  .cart-item:last-child{border-bottom:none}
+  .cart-item .tea-cup{width:88px;height:88px;margin:0;flex-shrink:0}
+  .cart-item .info .name-zh{
+    font-size:22px;color:var(--ink);font-weight:500;letter-spacing:.15em;
+  }
+  .cart-item .info .name-en{
+    font-family:var(--serif-en);font-style:italic;
+    font-size:15px;color:var(--ink-soft);letter-spacing:.04em;margin-top:2px;
+  }
+  .cart-item .info .meta{
+    margin-top:6px;font-size:13px;color:var(--ink-mute);letter-spacing:.2em;
+  }
+  /* 修改品項按鈕 */
+  .cart-item .edit{
+    width:42px;height:42px;border-radius:50%;border:1px solid var(--line);
+    background:#FFF;color:var(--ink-soft);cursor:pointer;
+    font-size:16px;line-height:1;
+    display:inline-flex;align-items:center;justify-content:center;
+    -webkit-tap-highlight-color:transparent;
+    transition:all .2s;
+  }
+  .cart-item .edit:active{transform:scale(.92)}
+  .cart-item .edit.on,.cart-item .edit:focus{
+    background:var(--primary);color:#FAF6EC;border-color:var(--primary);
+  }
+  /* 行內展開的客製化編輯抽屜 */
+  .cart-item-edit{
+    grid-column:1 / -1;
+    background:var(--surface);border:1px solid var(--line-soft);
+    border-radius:16px;padding:18px 20px;margin-top:6px;
+    display:none;flex-direction:column;gap:10px;
+    animation:editSlide .35s cubic-bezier(.34,1.56,.64,1);
+  }
+  .cart-item.editing .cart-item-edit{display:flex}
+  @keyframes editSlide{
+    0%{opacity:0;transform:translateY(-8px)}
+    100%{opacity:1;transform:translateY(0)}
+  }
+  .cart-item-edit .row{
+    display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  }
+  .cart-item-edit .row .ttl{
+    width:54px;font-size:12px;color:var(--ink-mute);letter-spacing:.25em;flex-shrink:0;
+  }
+  .cart-item-edit .row .ttl-en{
+    font-family:var(--serif-en);font-style:italic;font-size:11px;letter-spacing:.04em;
+  }
+  body[data-lang="en"] .cart-item-edit .row .ttl{display:none}
+  body[data-lang="zh"] .cart-item-edit .row .ttl-en{display:none}
+  .cart-item-edit .row .chips{display:flex;flex-wrap:wrap;gap:5px;flex:1}
+  .cart-item-edit .row .chips button{
+    padding:6px 12px;border-radius:999px;border:1px solid var(--line);
+    background:#FFF;font-family:var(--serif);font-size:12px;
+    color:var(--ink-soft);letter-spacing:.15em;cursor:pointer;
+    -webkit-tap-highlight-color:transparent;
+    display:inline-flex;align-items:center;gap:3px;
+  }
+  .cart-item-edit .row .chips button.on{
+    background:var(--primary);color:#FAF6EC;border-color:var(--primary);
+  }
+  .cart-item-edit .row .chips button .plus{
+    font-family:var(--serif-en);font-size:10px;color:var(--vermilion);
+  }
+  .cart-item-edit .row .chips button.on .plus{color:rgba(255,246,236,.85)}
+  .cart-item-edit .actions{
+    display:flex;justify-content:flex-end;gap:8px;
+    padding-top:8px;border-top:1px dashed var(--line-soft);
+  }
+  .cart-item-edit .actions button{
+    padding:8px 18px;border-radius:8px;border:1px solid var(--line);
+    background:#FFF;font-family:var(--serif);font-size:13px;
+    color:var(--ink);letter-spacing:.2em;cursor:pointer;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .cart-item-edit .actions .danger{color:var(--vermilion);border-color:rgba(184,64,64,.3)}
+  .cart-item-edit .actions .save{
+    background:var(--primary);color:#FAF6EC;border-color:var(--primary);
+  }
+  body[data-lang="en"] .cart-item-edit .actions button{
+    font-family:var(--serif-en);font-style:italic;letter-spacing:.04em;font-size:14px;
+  }
+  body[data-lang="en"] .cart-item-edit .row .chips button{
+    font-family:var(--serif-en);font-style:normal;font-weight:500;letter-spacing:.04em;font-size:13px;
+  }
+  .cart-item .qty{
+    display:flex;align-items:center;border:1px solid var(--line);border-radius:10px;
+  }
+  .cart-item .qty button{
+    width:36px;height:40px;border:none;background:transparent;
+    font-family:var(--serif-en);font-size:18px;font-weight:500;color:var(--ink);cursor:pointer;
+  }
+  .cart-item .qty .n{
+    width:36px;text-align:center;
+    font-family:var(--serif-en);font-size:18px;font-weight:600;
+    color:var(--primary-deep);font-variant-numeric:tabular-nums;
+  }
+  .cart-item .price{
+    font-family:var(--serif-en);font-size:26px;font-weight:600;color:var(--primary-deep);
+    min-width:88px;text-align:right;font-variant-numeric:tabular-nums;
+  }
+  .cart-item .price small{
+    font-family:var(--serif-en);font-style:normal;font-size:11px;font-weight:500;
+    color:var(--ink-mute);margin-right:4px;letter-spacing:.12em;text-transform:uppercase;
+  }
+
+  .cart-summary{
+    background:var(--card);border-radius:24px;
+    padding:36px 32px;display:flex;flex-direction:column;
+  }
+  .summary-row{
+    display:flex;justify-content:space-between;align-items:baseline;
+    padding:12px 0;
+    font-size:16px;color:var(--ink-soft);letter-spacing:.2em;
+  }
+  .summary-row .v{color:var(--ink);font-weight:500}
+  .summary-row.total{
+    border-top:1px solid var(--line);margin-top:12px;padding-top:18px;
+  }
+  .summary-row.total .l{font-size:20px;color:var(--ink);letter-spacing:.5em}
+  .summary-row.total .v{
+    font-family:var(--brush);font-size:54px;color:var(--primary-deep);line-height:1;
+  }
+  .summary-row.total .v small{
+    font-family:var(--serif-en);font-style:italic;
+    font-size:18px;color:var(--ink-mute);margin-right:6px;
+  }
+
+  .pickup-mode{
+    margin:24px 0;
+    display:grid;grid-template-columns:1fr 1fr;gap:10px;
+  }
+  .pickup-mode button{
+    padding:18px;background:transparent;
+    border:1.4px solid var(--line);border-radius:12px;
+    font-family:var(--serif);cursor:pointer;
+    transition:all .3s;
+  }
+  .pickup-mode button.on{
+    border-color:var(--primary);background:rgba(155,106,46,.08);
+  }
+  .pickup-mode button .glyph{
+    font-family:var(--brush);font-size:32px;color:var(--primary-deep);
+    line-height:1;margin-bottom:8px;display:block;
+  }
+  .pickup-mode button .zh{
+    font-size:15px;color:var(--ink);letter-spacing:.3em;
+  }
+  .pickup-mode button .en{
+    display:block;
+    font-family:var(--serif-en);font-style:italic;
+    font-size:12px;color:var(--ink-mute);letter-spacing:.04em;margin-top:2px;
+  }
+
+  .checkout-final{
+    margin-top:auto;
+    width:100%;height:80px;
+    background:var(--primary);color:#FAF6EC;
+    border:none;border-radius:14px;
+    font-family:var(--serif);font-size:24px;
+    letter-spacing:.5em;text-indent:.5em;cursor:pointer;
+    box-shadow:0 8px 24px rgba(155,106,46,.25);
+    transition:all .3s;
+    display:flex;align-items:center;justify-content:center;gap:18px;
+  }
+  .checkout-final:hover{transform:translateY(-2px);box-shadow:0 12px 28px rgba(155,106,46,.32)}
+  .checkout-final .en{
+    font-family:var(--serif-en);font-style:italic;
+    font-size:16px;letter-spacing:.06em;text-indent:0;
+  }
+
+  /* ───────────────────────────────────────────────
+     PAGE 8：取餐完成 (done)
+     ─────────────────────────────────────────────── */
+  .page-done{
+    display:flex;align-items:center;justify-content:center;
+    background:
+      radial-gradient(ellipse 1100px 600px at 50% 40%,rgba(155,106,46,.10),transparent 70%),
+      var(--bg);
+  }
+  .done-card{position:relative;width:1200px;text-align:center;padding:40px 80px}
+  .done-enso{
+    width:240px;height:240px;color:var(--primary);
+    margin:0 auto 36px;display:block;
+  }
+  .done-enso .glyph{font-family:var(--brush);font-size:140px;color:var(--primary-deep)}
+  .done-title{
+    font-size:42px;letter-spacing:.6em;text-indent:.6em;
+    color:var(--ink);font-weight:500;margin-bottom:8px;
+  }
+  .done-title-en{
+    font-family:var(--serif-en);font-style:italic;
+    font-size:26px;color:var(--ink-soft);
+    letter-spacing:.06em;margin-bottom:24px;
+  }
+  .done-sub{
+    font-family:var(--brush);font-size:24px;color:var(--ink-soft);
+    letter-spacing:.3em;margin-bottom:48px;
+  }
+  .pickup{
+    display:inline-flex;flex-direction:column;align-items:center;gap:8px;
+    margin-bottom:36px;position:relative;
+  }
+  .pickup .lbl{
+    font-size:16px;color:var(--ink-mute);letter-spacing:.7em;text-indent:.7em;
+    margin-bottom:6px;
+  }
+  .pickup .lbl::before,.pickup .lbl::after{
+    content:"——";color:var(--line);margin:0 18px;letter-spacing:0;
+  }
+  .pickup .lbl-en{
+    font-family:var(--serif-en);font-style:italic;
+    font-size:13px;color:var(--ink-mute);
+    letter-spacing:.1em;margin-bottom:4px;
+  }
+  .pickup .number{
+    font-family:var(--brush);font-size:200px;line-height:1;
+    color:var(--primary-deep);letter-spacing:.05em;
+  }
+  .pickup .number-underline{width:340px;height:8px;color:var(--primary);margin-top:8px;opacity:.7}
+
+  .done-pay{
+    display:inline-flex;align-items:center;gap:24px;
+    padding:14px 32px;background:rgba(155,106,46,.08);
+    border-radius:8px;color:var(--ink-soft);font-size:16px;letter-spacing:.4em;
+  }
+  .done-pay .num{
+    font-family:var(--brush);font-size:28px;color:var(--primary-deep);letter-spacing:.05em;
+  }
+  .done-pay .vbar{width:1px;height:18px;background:var(--line)}
+
+  .done-tip{
+    margin-top:24px;color:var(--ink-soft);font-size:18px;
+    letter-spacing:.4em;text-indent:.4em;
+  }
+  .done-tip-en{
+    font-family:var(--serif-en);font-style:italic;
+    font-size:16px;color:var(--ink-mute);letter-spacing:.06em;margin-top:4px;
+  }
+
+  .done-bottom{
+    margin-top:36px;
+    display:flex;justify-content:center;align-items:center;gap:20px;
+  }
+  .done-bottom .countdown{
+    width:56px;height:56px;border-radius:50%;
+    border:1px solid var(--line);
+    display:flex;align-items:center;justify-content:center;
+    font-family:var(--brush);font-size:24px;color:var(--primary);position:relative;
+  }
+  .done-bottom .countdown svg{position:absolute;inset:-2px;width:60px;height:60px;transform:rotate(-90deg)}
+  .done-bottom .countdown svg circle{
+    fill:none;stroke:var(--primary);stroke-width:1.6;
+    stroke-dasharray:175;stroke-dashoffset:0;
+    animation:cd 10s linear forwards;
+  }
+  @keyframes cd{to{stroke-dashoffset:175}}
+  .done-bottom .text{
+    color:var(--ink-mute);font-size:14px;
+    letter-spacing:.3em;text-indent:.3em;
+  }
+
+  .done-signature{
+    position:absolute;bottom:32px;right:64px;
+    display:flex;align-items:center;gap:14px;
+  }
+  .done-signature .text{
+    font-family:var(--brush);font-size:28px;color:var(--ink-soft);letter-spacing:.3em;
+  }
+  .done-vertical{top:64px;right:64px;font-size:20px}
+
+  /* ───────────────────────────────────────────────
+     Lang-aware：直 接 切 換 ， 僅 顯 示 當 前 語 言
+     ─────────────────────────────────────────────── */
+  body[data-lang="zh"] .text-en,
+  body[data-lang="zh"] .name-en,
+  body[data-lang="zh"] .label-en,
+  body[data-lang="zh"] .ask-en,
+  body[data-lang="zh"] .lbl-en,
+  body[data-lang="zh"] .body-en,
+  body[data-lang="zh"] .head-en,
+  body[data-lang="zh"] .ttl-en,
+  body[data-lang="zh"] .lead-en,
+  body[data-lang="zh"] .desc-en,
+  body[data-lang="zh"] .badge-en,
+  body[data-lang="zh"] .recommended-en,
+  body[data-lang="zh"] .en{
+    display:none !important;
+  }
+  body[data-lang="en"] .text-zh,
+  body[data-lang="en"] .name-zh,
+  body[data-lang="en"] .label-zh,
+  body[data-lang="en"] .ask-zh,
+  body[data-lang="en"] .lbl-zh,
+  body[data-lang="en"] .body-zh,
+  body[data-lang="en"] .head-zh,
+  body[data-lang="en"] .ttl-zh,
+  body[data-lang="en"] .lead-zh,
+  body[data-lang="en"] .desc-zh,
+  body[data-lang="en"] .ask-hint,
+  body[data-lang="en"] .lbl-tag,
+  body[data-lang="en"] .zh{
+    display:none !important;
+  }
+  /* ───────────────────────────────────────────────
+     en 模式：英文版面重新設計（更大、更清晰、更易讀）
+     原則：英文以正體 (non-italic) 為主、僅小型副標保留 italic
+     ─────────────────────────────────────────────── */
+  /* 共用：所有英文文字主體都加粗、提色、放大 */
+  body[data-lang="en"] .text-en,
+  body[data-lang="en"] .name-en,
+  body[data-lang="en"] .label-en,
+  body[data-lang="en"] .ask-en,
+  body[data-lang="en"] .lead-en,
+  body[data-lang="en"] .ttl-en,
+  body[data-lang="en"] .lbl-en,
+  body[data-lang="en"] .head-en,
+  body[data-lang="en"] .body-en,
+  body[data-lang="en"] .desc-en,
+  body[data-lang="en"] .en{
+    /* 不強制改變顏色 — 由各元件原本 CSS 規則決定，僅微調可讀性 */
+    font-style:normal;
+    opacity:1;
+    letter-spacing:.02em;
+  }
+  /* 主標題級英文：放大但保留原色 */
+  body[data-lang="en"] .name-en,
+  body[data-lang="en"] .head-en,
+  body[data-lang="en"] .lead-en,
+  body[data-lang="en"] .ask-en{
+    font-size:1.2em;
+    font-weight:500;
+  }
+  /* 內文段落 */
+  body[data-lang="en"] .body-en,
+  body[data-lang="en"] .desc-en{
+    font-size:1.15em;
+    line-height:1.6;
+  }
+  /* 標籤 / 小字：僅放大字級，色彩沿用原本 ink-mute / ink-soft */
+  body[data-lang="en"] .label-en,
+  body[data-lang="en"] .lbl-en,
+  body[data-lang="en"] .ttl-en{
+    font-size:1.08em;
+    letter-spacing:.06em;
+  }
+  /* 詳細頁茶名：保留優雅的襯線 italic（讓茶名仍是視覺主角） */
+  body[data-lang="en"] .detail-name .en{
+    font-size:38px;font-weight:500;
+    font-family:var(--serif-en);font-style:italic;letter-spacing:.02em;
+  }
+  body[data-lang="en"] .welcome-subtitle-en{
+    font-size:30px;font-weight:500;
+    font-family:var(--serif-en);font-style:italic;
+  }
+  /* 卡片名稱、菜單條目、按鈕內 EN：略加大但顏色沿用原規則 */
+  body[data-lang="en"] .menu-card .name .en,
+  body[data-lang="en"] .menu-cart-list .row .name .en,
+  body[data-lang="en"] .menu-checkout .en,
+  body[data-lang="en"] .add-btn .text-en,
+  body[data-lang="en"] .ai-floater .text-en{
+    font-size:1.08em;
+  }
+  /* meta 系列：英文模式不強制覆蓋顏色，沿用原 ink-mute */
+  body[data-lang="en"] .lang-toggle button[data-l="en"],
+  body[data-lang="zh"] .lang-toggle button[data-l="zh"]{font-weight:600}
+
+  /* 隱藏拼音與冗餘提示文字（簡化資訊負擔） */
+  .name-pinyin,
+  .detail-name .pinyin{display:none !important}
+  .menu-card .info-btn{display:none !important}
+
+  /* ───────────────────────────────────────────────
+     詳細頁可摺疊「細品此茶」面板（減輕版面負擔）
+     ─────────────────────────────────────────────── */
+  .detail-more{
+    background:var(--surface);
+    border:1px solid var(--line-soft);
+    border-radius:18px;
+    overflow:hidden;
+  }
+  .detail-more > summary{
+    list-style:none;cursor:pointer;
+    padding:18px 24px;
+    display:flex;align-items:center;justify-content:space-between;gap:14px;
+    font-size:15px;color:var(--ink-soft);letter-spacing:.35em;
+    transition:background .25s ease;
+  }
+  .detail-more > summary:hover{background:rgba(155,106,46,.05)}
+  .detail-more > summary::-webkit-details-marker{display:none}
+  .detail-more > summary .ttl-grp{display:flex;align-items:baseline;gap:10px}
+  .detail-more > summary .ttl-en{
+    font-family:var(--serif-en);font-style:italic;
+    font-size:13px;color:var(--ink-mute);letter-spacing:.06em;
+  }
+  .detail-more > summary .marker{
+    width:28px;height:28px;border-radius:50%;
+    border:1px solid var(--line);
+    display:flex;align-items:center;justify-content:center;
+    font-size:13px;color:var(--ink-mute);
+    transition:transform .35s ease;flex-shrink:0;
+  }
+  .detail-more[open] > summary .marker{transform:rotate(180deg)}
+  .detail-more .more-body{
+    padding:4px 22px 22px;
+    display:flex;flex-direction:column;gap:16px;
+  }
+  /* 強化「侍茶為我配」按鈕為主要 CTA */
+  .sommelier-best.standalone{
+    margin:0;padding:16px 20px;
+    background:linear-gradient(120deg,rgba(155,106,46,.10),rgba(200,165,116,.14));
+    border:1px solid var(--primary-soft);border-style:dashed;
+  }
+
+  /* ───────────────────────────────────────────────
+     侍茶 AI ・ Kiosk 語音助手 (Voice-first)
+     設計原則：無鍵盤、無滑鼠 hover、無對話紀錄；
+              每次互動是獨立場景，回答以「視覺卡片+語音」呈現。
+     ─────────────────────────────────────────────── */
+  /* 觸發按鈕：左下角大型麥克風 */
+  .ai-trigger{
+    position:absolute;left:36px;bottom:36px;z-index:80;
+    width:96px;height:96px;border-radius:50%;
+    background:linear-gradient(135deg,var(--primary) 0%,var(--primary-deep) 100%);
+    border:none;cursor:pointer;
+    box-shadow:0 10px 28px rgba(155,106,46,.40),0 0 0 8px rgba(255,255,255,.55);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+    color:#FAF6EC;
+    transition:transform .15s ease;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .ai-trigger:active{transform:scale(.94)}
+  .ai-trigger .mic-ic{width:38px;height:38px;display:block}
+  .ai-trigger .lbl{
+    font-family:var(--serif);font-size:11px;letter-spacing:.4em;
+    text-indent:.4em;line-height:1;margin-top:2px;opacity:.9;
+  }
+  body[data-lang="en"] .ai-trigger .lbl{
+    font-family:var(--serif-en);font-style:italic;letter-spacing:.04em;text-indent:0;font-size:12px;
+  }
+  .ai-trigger::before{
+    content:"";position:absolute;inset:-8px;border-radius:50%;
+    border:1.5px solid rgba(155,106,46,.35);
+    animation:aiPulse 2.4s ease-out infinite;pointer-events:none;
+  }
+  .ai-trigger::after{
+    content:"";position:absolute;inset:-8px;border-radius:50%;
+    border:1.5px solid rgba(155,106,46,.25);
+    animation:aiPulse 2.4s ease-out infinite 1.2s;pointer-events:none;
+  }
+  @keyframes aiPulse{
+    0%{transform:scale(1);opacity:.65}
+    100%{transform:scale(1.55);opacity:0}
+  }
+
+  /* 上方提醒泡泡（無滑鼠互動，純視覺提示） */
+  .ai-tip{
+    position:absolute;left:152px;bottom:60px;z-index:79;
+    max-width:280px;
+    padding:14px 20px;
+    background:#FAF6EC;
+    border:1px solid var(--line);
+    border-radius:18px 18px 18px 4px;
+    box-shadow:0 12px 32px rgba(60,40,20,.18);
+    font-size:14px;color:var(--ink);line-height:1.6;letter-spacing:.06em;
+    pointer-events:none;
+    transform-origin:bottom left;
+    animation:tipPop .45s cubic-bezier(.34,1.56,.64,1);
+  }
+  .ai-tip[hidden]{display:none}
+  .ai-tip .tip-zh,.ai-tip .tip-en{display:block}
+  .ai-tip .tip-en{
+    margin-top:4px;font-family:var(--serif-en);font-style:italic;
+    font-size:12px;color:var(--ink-soft);letter-spacing:.04em;
+  }
+  body[data-lang="en"] .ai-tip .tip-zh{display:none}
+  body[data-lang="zh"] .ai-tip .tip-en{display:none}
+  body[data-lang="en"] .ai-tip .tip-en{
+    font-style:normal;font-size:14px;color:var(--ink);font-weight:500;letter-spacing:.02em;
+  }
+  @keyframes tipPop{
+    0%{opacity:0;transform:scale(.6) translateY(20px)}
+    100%{opacity:1;transform:scale(1) translateY(0)}
+  }
+
+  /* ───── 全螢幕語音覆蓋層 ───── */
+  .ai-overlay{
+    position:absolute;inset:0;z-index:200;
+    background:rgba(20,15,8,.55);
+    backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+    display:none;align-items:center;justify-content:center;
+    animation:overlayFade .35s ease;
+  }
+  .ai-overlay.show{display:flex}
+  @keyframes overlayFade{
+    0%{opacity:0}
+    100%{opacity:1}
+  }
+  .ai-stage{
+    width:760px;max-width:92%;
+    background:#FAF6EC;
+    border-radius:32px;
+    box-shadow:0 30px 80px rgba(0,0,0,.35);
+    padding:48px 56px 40px;
+    position:relative;
+    transform-origin:center;
+    animation:stagePop .45s cubic-bezier(.34,1.56,.64,1);
+  }
+  @keyframes stagePop{
+    0%{opacity:0;transform:scale(.85)}
+    100%{opacity:1;transform:scale(1)}
+  }
+  .ai-stage .close{
+    position:absolute;top:20px;right:20px;
+    width:48px;height:48px;border-radius:50%;border:none;
+    background:rgba(155,106,46,.10);color:var(--ink);
+    cursor:pointer;font-size:24px;line-height:1;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .ai-stage .close:active{background:rgba(155,106,46,.20)}
+
+  /* 階段切換：listening / thinking / answer */
+  .ai-stage .scene{display:none;flex-direction:column;align-items:center;text-align:center}
+  .ai-stage[data-scene="listening"] .scene-listen,
+  .ai-stage[data-scene="thinking"]  .scene-think,
+  .ai-stage[data-scene="answer"]    .scene-answer{display:flex}
+
+  /* — Listening 場景 — */
+  .scene-listen{gap:24px;padding:20px 0}
+  .scene-listen .mic-orb{
+    width:200px;height:200px;border-radius:50%;
+    background:radial-gradient(circle at 50% 35%,#C8A574 0%,var(--primary) 55%,var(--primary-deep) 100%);
+    display:flex;align-items:center;justify-content:center;
+    color:#FAF6EC;position:relative;
+    box-shadow:0 0 0 0 rgba(155,106,46,.4);
+    animation:micBreath 1.6s ease-in-out infinite;
+  }
+  @keyframes micBreath{
+    0%,100%{box-shadow:0 0 0 0 rgba(155,106,46,.45),0 14px 40px rgba(155,106,46,.3)}
+    50%    {box-shadow:0 0 0 32px rgba(155,106,46,0),0 14px 40px rgba(155,106,46,.4)}
+  }
+  .scene-listen .mic-orb svg{width:72px;height:72px}
+  .scene-listen .wave{
+    display:flex;align-items:center;justify-content:center;gap:8px;height:48px;
+  }
+  .scene-listen .wave span{
+    display:block;width:6px;height:14px;border-radius:3px;
+    background:var(--primary);
+    animation:waveBar 1s ease-in-out infinite;
+  }
+  .scene-listen .wave span:nth-child(1){animation-delay:0s}
+  .scene-listen .wave span:nth-child(2){animation-delay:.12s}
+  .scene-listen .wave span:nth-child(3){animation-delay:.24s}
+  .scene-listen .wave span:nth-child(4){animation-delay:.36s}
+  .scene-listen .wave span:nth-child(5){animation-delay:.48s}
+  .scene-listen .wave span:nth-child(6){animation-delay:.6s}
+  .scene-listen .wave span:nth-child(7){animation-delay:.72s}
+  @keyframes waveBar{
+    0%,100%{height:8px;opacity:.55}
+    50%    {height:42px;opacity:1}
+  }
+  .scene-listen .prompt{
+    font-size:24px;color:var(--ink);letter-spacing:.4em;font-weight:500;
+  }
+  body[data-lang="en"] .scene-listen .prompt{
+    font-family:var(--serif-en);font-style:italic;letter-spacing:.04em;font-size:28px;
+  }
+  .scene-listen .hint{
+    font-size:14px;color:var(--ink-mute);letter-spacing:.2em;
+  }
+  body[data-lang="en"] .scene-listen .hint{
+    font-family:var(--serif-en);font-style:italic;letter-spacing:.04em;font-size:15px;
+  }
+
+  /* — Thinking 場景 — */
+  .scene-think{gap:24px;padding:60px 0}
+  .scene-think .seal{
+    width:120px;height:120px;border-radius:50%;
+    background:rgba(155,106,46,.10);
+    display:flex;align-items:center;justify-content:center;
+    font-family:var(--brush);font-size:60px;color:var(--primary-deep);
+    animation:sealSpin 2.4s linear infinite;
+  }
+  @keyframes sealSpin{
+    0%{transform:rotate(0deg)}
+    100%{transform:rotate(360deg)}
+  }
+  .scene-think .text{
+    font-size:18px;color:var(--ink-soft);letter-spacing:.4em;
+  }
+  body[data-lang="en"] .scene-think .text{
+    font-family:var(--serif-en);font-style:italic;letter-spacing:.04em;font-size:22px;
+  }
+
+  /* — Answer 場景 — */
+  .scene-answer{gap:22px;text-align:left;width:100%}
+  .scene-answer .heard{
+    align-self:flex-start;
+    padding:8px 16px;border-radius:999px;
+    background:rgba(155,106,46,.10);
+    font-size:13px;color:var(--ink-soft);letter-spacing:.15em;
+  }
+  .scene-answer .heard::before{content:"\201C "}
+  .scene-answer .heard::after{content:" \201D"}
+  body[data-lang="en"] .scene-answer .heard{font-family:var(--serif-en);font-style:italic;letter-spacing:.02em}
+
+  .scene-answer .ans-grid{
+    display:grid;grid-template-columns:240px 1fr;gap:28px;align-items:center;
+  }
+  .scene-answer .ans-image{
+    width:240px;height:240px;border-radius:24px;overflow:hidden;
+    background:var(--card);
+    display:flex;align-items:center;justify-content:center;
+    box-shadow:0 12px 32px rgba(60,40,20,.15);
+    flex-shrink:0;
+  }
+  .scene-answer .ans-image svg{width:100%;height:100%}
+  .scene-answer .ans-info .ans-name-zh{
+    font-size:32px;color:var(--ink);font-weight:500;letter-spacing:.2em;line-height:1.3;
+  }
+  .scene-answer .ans-info .ans-name-en{
+    margin-top:4px;
+    font-family:var(--serif-en);font-style:italic;font-size:18px;color:var(--ink-soft);letter-spacing:.04em;
+  }
+  body[data-lang="en"] .scene-answer .ans-info .ans-name-zh{display:none}
+  body[data-lang="zh"] .scene-answer .ans-info .ans-name-en{font-size:14px}
+  body[data-lang="en"] .scene-answer .ans-info .ans-name-en{
+    font-style:italic;font-size:30px;color:var(--ink);font-weight:600;letter-spacing:.02em;margin-top:0;
+  }
+  .scene-answer .ans-info .ans-desc{
+    margin-top:14px;font-size:16px;color:var(--ink-soft);line-height:1.7;letter-spacing:.1em;
+  }
+  body[data-lang="en"] .scene-answer .ans-info .ans-desc{
+    font-size:17px;letter-spacing:.02em;color:var(--ink);font-weight:500;
+  }
+  .scene-answer .ans-info .ans-tags{
+    margin-top:14px;display:flex;flex-wrap:wrap;gap:8px;
+  }
+  .scene-answer .ans-info .ans-tags span{
+    padding:5px 12px;border-radius:999px;
+    background:rgba(155,106,46,.08);
+    border:1px solid var(--primary-soft);
+    font-size:12px;color:var(--primary-deep);letter-spacing:.15em;
+  }
+  body[data-lang="en"] .scene-answer .ans-info .ans-tags span{
+    font-family:var(--serif-en);font-style:normal;font-weight:500;letter-spacing:.04em;font-size:13px;
+  }
+
+  .scene-answer .ans-actions{
+    display:flex;gap:12px;justify-content:center;flex-wrap:wrap;
+    padding-top:18px;border-top:1px dashed var(--line-soft);
+  }
+  .scene-answer .ans-actions button{
+    padding:14px 24px;border-radius:14px;border:1px solid var(--line);
+    background:#FFF;font-family:var(--serif);font-size:15px;color:var(--ink);
+    letter-spacing:.3em;cursor:pointer;
+    -webkit-tap-highlight-color:transparent;
+    transition:transform .15s ease;
+    display:flex;align-items:center;gap:8px;
+  }
+  .scene-answer .ans-actions button:active{transform:scale(.96)}
+  .scene-answer .ans-actions button.primary{
+    background:var(--primary);color:#FAF6EC;border-color:var(--primary);
+    box-shadow:0 6px 18px rgba(155,106,46,.25);
+  }
+  .scene-answer .ans-actions button .ic{font-size:18px;line-height:1}
+  body[data-lang="en"] .scene-answer .ans-actions button{
+    font-family:var(--serif-en);font-style:normal;font-weight:500;letter-spacing:.04em;
+  }
+
+  /* ───────────────────────────────────────────────
+     Tweaks 面板
+     ─────────────────────────────────────────────── */
+  #tweaks{
+    position:fixed;bottom:24px;right:24px;z-index:100;
+    background:rgba(20,15,8,.92);color:#F1E9D8;
+    border-radius:14px;padding:14px;
+    backdrop-filter:blur(8px);
+    box-shadow:0 12px 40px rgba(0,0,0,.5);
+    font-family:var(--serif);width:260px;
+    transform-origin:bottom right;
+    transition:transform .3s,opacity .3s;
+  }
+  #tweaks.collapsed{transform:scale(.4) translate(80px,40px);opacity:.55}
+  #tweaks.collapsed *:not(.tweaks-toggle){display:none}
+  .tweaks-title{
+    font-size:13px;color:#C8A574;letter-spacing:.3em;
+    text-transform:uppercase;margin-bottom:12px;
+    display:flex;justify-content:space-between;align-items:center;
+  }
+  .tweaks-toggle{
+    cursor:pointer;width:18px;height:18px;
+    display:flex;align-items:center;justify-content:center;
+    border-radius:4px;background:rgba(255,255,255,.08);font-size:11px;
+  }
+  .tweak-row{
+    display:grid;grid-template-columns:80px 1fr;
+    gap:8px;align-items:center;margin-bottom:10px;font-size:12px;
+  }
+  .tweak-row label{color:#B8A88E;letter-spacing:.15em}
+  .tweak-row select,.tweak-row button{
+    background:rgba(255,255,255,.06);color:#F1E9D8;
+    border:1px solid rgba(255,255,255,.08);
+    border-radius:6px;padding:5px 8px;font-size:12px;
+    font-family:var(--serif);
+  }
+  .seg{display:flex;gap:4px;flex-wrap:wrap}
+  .seg button{flex:1;min-width:42px;cursor:pointer;background:rgba(255,255,255,.04);transition:all .2s}
+  .seg button.on{background:#9B6A2E;border-color:#9B6A2E;color:#FAF6EC}
+  .tweak-foot{
+    margin-top:8px;padding-top:8px;
+    border-top:1px solid rgba(255,255,255,.08);
+    font-size:10px;color:#6F6452;letter-spacing:.15em;text-align:center;
+  }
+</style>
+</head>
+<body data-theme="day" data-lang="zh">
+
+<div id="stage-wrap">
+  <div id="stage">
+
+    <!-- ════════════ PAGE 1：迎客 (welcome) ════════════ -->
+    <section class="page page-welcome active" data-page="welcome">
+      <div class="topbar">
+        <div></div>
+        <div class="lang-toggle">
+          <button data-l="zh" class="on">中 文</button>
+          <button data-l="en">English</button>
+        </div>
+      </div>
+
+      <div class="vertical-cipher welcome-vertical">山 中 何 所 有 ・ 嶺 上 多 白 雲</div>
+
+      <div class="welcome-hero">
+        <div class="enso-stack">
+          <svg class="enso breath" viewBox="0 0 160 160">
+            <path d="M80,18 C112,16 144,40 146,74 C149,112 124,142 88,145 C52,148 16,122 16,88 C16,52 44,20 80,18"/>
+          </svg>
+          <span class="glyph">蟬</span>
+        </div>
+        <div style="text-align:center">
+          <h1 class="welcome-title">蟬 吃 茶</h1>
+          <p class="welcome-subtitle-zh text-zh">靜 心 ・ 品 茶 ・ 得 禪 悅</p>
+          <p class="welcome-subtitle-en text-en">Cha-an Tea House · A Cup, A Moment</p>
+        </div>
+      </div>
+
+      <div class="dust">
+        <span style="left:18%;top:32%;animation-delay:0s"></span>
+        <span style="left:72%;top:20%;animation-delay:-3s"></span>
+        <span style="left:55%;top:48%;animation-delay:-6s"></span>
+        <span style="left:30%;top:65%;animation-delay:-9s"></span>
+        <span style="left:82%;top:60%;animation-delay:-12s"></span>
+        <span style="left:12%;top:75%;animation-delay:-2s"></span>
+        <span style="left:65%;top:80%;animation-delay:-7s"></span>
+      </div>
+
+      <div class="welcome-cta" data-go="path">
+        <div class="ring">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M5 9c0-3 3-5 7-5s7 2 7 5"/>
+            <path d="M9 12.5c0-1.5 1.3-2.5 3-2.5s3 1 3 2.5c0 2-3 2.5-3 4.5"/>
+            <circle cx="12" cy="20" r="1" fill="currentColor"/>
+          </svg>
+        </div>
+        <div class="label text-zh">輕 觸 開 始</div>
+        <div class="label-en text-en">Tap to Begin</div>
+      </div>
+
+      <div class="welcome-tagline-bottom">
+        <span class="seal">蟬</span>
+        <span class="text text-zh">一 期 一 會</span>
+        <span class="text-en text-en">Once in a Lifetime</span>
+      </div>
+    </section>
+
+
+    <!-- ════════════ PAGE 2：擇徑 (path) ════════════ -->
+    <section class="page page-path" data-page="path">
+      <div class="topbar">
+        <div class="brand-min" data-go="welcome">
+          <span class="seal">蟬</span>
+          <div class="name">蟬 吃 茶<small>Cha-an</small></div>
+        </div>
+        <div class="lang-toggle">
+          <button data-l="zh" class="on">中 文</button>
+          <button data-l="en">English</button>
+        </div>
+      </div>
+
+      <div class="path-title">
+        <h2 class="text-zh">您 是 哪 一 種 茶 客？</h2>
+        <div class="en text-en">How would you like to order today?</div>
+      </div>
+
+      <div class="path-cards">
+        <div class="path-card" data-go="menu">
+          <div class="enso-stack">
+            <svg class="enso" viewBox="0 0 160 160">
+              <path d="M80,18 C112,16 144,40 146,74 C149,112 124,142 88,145 C52,148 16,122 16,88 C16,52 44,20 80,18"/>
+            </svg>
+            <span class="glyph">熟</span>
+          </div>
+          <div class="label-zh text-zh">我 已 心 有 所 屬</div>
+          <div class="label-en text-en">I Know What I Want</div>
+          <p class="desc text-zh">直 接 翻 開 茶 單 ， 自 在 點 選</p>
+          <p class="desc-en text-en">Browse our full menu and order directly.</p>
+        </div>
+
+        <div class="path-card" data-go="profile">
+          <div class="recommended">
+            <span class="text-zh">為 新 客 推 薦</span>
+            <span class="recommended-en text-en">Recommended for First Visit</span>
+          </div>
+          <div class="enso-stack">
+            <svg class="enso" viewBox="0 0 160 160">
+              <path d="M80,18 C112,16 144,40 146,74 C149,112 124,142 88,145 C52,148 16,122 16,88 C16,52 44,20 80,18"/>
+            </svg>
+            <span class="glyph">薦</span>
+          </div>
+          <div class="label-zh text-zh">請 為 我 推 薦</div>
+          <div class="label-en text-en">Recommend a Tea for Me</div>
+          <p class="desc text-zh">三 個 簡 單 提 問 ， A I 為 您 配 一 杯 對 味 的 茶</p>
+          <p class="desc-en text-en">Answer three quick questions, our AI will pair you with the right tea.</p>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- ════════════ PAGE 3：問味 (profile) ════════════ -->
+    <section class="page page-profile" data-page="profile">
+      <div class="topbar">
+        <div class="back-btn" data-go="path">
+          <span class="arrow">←</span>
+          <span class="text-zh">返 回</span>
+          <span class="text-en">Back</span>
+        </div>
+        <div class="lang-toggle">
+          <button data-l="zh" class="on">中 文</button>
+          <button data-l="en">English</button>
+        </div>
+      </div>
+
+      <div class="profile-head">
+        <div class="progress-pills">
+          <div class="pill on" data-step="1"></div>
+          <div class="pill" data-step="2"></div>
+          <div class="pill" data-step="3"></div>
+          <span class="step-label">
+            <span class="text-zh">第 <em id="stepNumZh">一</em> 問 ／ 共 三 問</span>
+            <span class="text-en">Step <em id="stepNumEn">1</em> of 3</span>
+          </span>
+        </div>
+        <div class="ghost-btn" data-go="menu" style="padding:8px 22px;font-size:13px;letter-spacing:.3em">
+          <span class="text-zh">略 過</span>
+          <span class="text-en">Skip</span>
+        </div>
+      </div>
+
+      <div class="profile-stage">
+
+        <!-- Step 1 -->
+        <div class="profile-q" data-q="1">
+          <div class="num">壹</div>
+          <div class="ask-zh text-zh">您 偏 好 哪 種 茶 韻？</div>
+          <div class="ask-en text-en">Which flavor profile speaks to you?</div>
+          <div class="ask-hint text-zh">可 多 選 ・ Choose one or more</div>
+        </div>
+        <div class="chips-grid" data-q-chips="1">
+          <div class="chip" data-v="fresh">
+            <div class="glyph">清</div>
+            <div class="lbl-zh text-zh">清 爽</div>
+            <div class="lbl-en text-en">Refreshing</div>
+            <div class="lbl-tag">花 香 ・ 草 氣 ・ 輕 盈</div>
+          </div>
+          <div class="chip" data-v="rich">
+            <div class="glyph">醇</div>
+            <div class="lbl-zh text-zh">醇 厚</div>
+            <div class="lbl-en text-en">Full-bodied</div>
+            <div class="lbl-tag">焙 香 ・ 沉 穩 ・ 厚 實</div>
+          </div>
+          <div class="chip" data-v="sweet">
+            <div class="glyph">甜</div>
+            <div class="lbl-zh text-zh">甜 美</div>
+            <div class="lbl-en text-en">Sweet</div>
+            <div class="lbl-tag">蜜 香 ・ 果 韻 ・ 圓 潤</div>
+          </div>
+          <div class="chip" data-v="bitter">
+            <div class="glyph">韻</div>
+            <div class="lbl-zh text-zh">甘 苦</div>
+            <div class="lbl-en text-en">Bittersweet</div>
+            <div class="lbl-tag">回 甘 ・ 醒 神 ・ 濃 釅</div>
+          </div>
+        </div>
+
+        <!-- Step 2 -->
+        <div class="profile-q" data-q="2" style="display:none">
+          <div class="num">貳</div>
+          <div class="ask-zh text-zh">您 想 要 什 麼 樣 的 飽 滿 度？</div>
+          <div class="ask-en text-en">How strong should your tea be?</div>
+          <div class="ask-hint text-zh">單 選 ・ Pick one</div>
+        </div>
+        <div class="chips-grid col3" data-q-chips="2" style="display:none">
+          <div class="chip" data-v="light">
+            <div class="glyph">淡</div>
+            <div class="lbl-zh text-zh">輕 茶</div>
+            <div class="lbl-en text-en">Light</div>
+            <div class="lbl-tag">如 晨 霧 般 微 透</div>
+          </div>
+          <div class="chip" data-v="medium">
+            <div class="glyph">適</div>
+            <div class="lbl-zh text-zh">適 中</div>
+            <div class="lbl-en text-en">Balanced</div>
+            <div class="lbl-tag">不 過 不 及 ， 剛 剛 好</div>
+          </div>
+          <div class="chip" data-v="strong">
+            <div class="glyph">濃</div>
+            <div class="lbl-zh text-zh">濃 茶</div>
+            <div class="lbl-en text-en">Strong</div>
+            <div class="lbl-tag">舌 尖 留 韻 ， 沉 而 久</div>
+          </div>
+        </div>
+
+        <!-- Step 3 -->
+        <div class="profile-q" data-q="3" style="display:none">
+          <div class="num">參</div>
+          <div class="ask-zh text-zh">想 為 茶 添 一 點 什 麼？</div>
+          <div class="ask-en text-en">Anything to pair with your tea?</div>
+          <div class="ask-hint text-zh">可 多 選 ・ Choose one or more</div>
+        </div>
+        <div class="chips-grid" data-q-chips="3" style="display:none">
+          <div class="chip" data-v="pearl">
+            <div class="glyph">珍</div>
+            <div class="lbl-zh text-zh">波 霸 珍 珠</div>
+            <div class="lbl-en text-en">Tapioca Pearls</div>
+            <div class="lbl-tag">Q 彈 黑 糖 香</div>
+          </div>
+          <div class="chip" data-v="coconut">
+            <div class="glyph">椰</div>
+            <div class="lbl-zh text-zh">椰 果</div>
+            <div class="lbl-en text-en">Coconut Jelly</div>
+            <div class="lbl-tag">爽 脆 微 甜</div>
+          </div>
+          <div class="chip" data-v="jelly">
+            <div class="glyph">凍</div>
+            <div class="lbl-zh text-zh">茶 凍</div>
+            <div class="lbl-en text-en">Tea Jelly</div>
+            <div class="lbl-tag">茶 香 凝 凍</div>
+          </div>
+          <div class="chip" data-v="none">
+            <div class="glyph">純</div>
+            <div class="lbl-zh text-zh">純 茶 即 可</div>
+            <div class="lbl-en text-en">Just Tea</div>
+            <div class="lbl-tag">本 味 為 上</div>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="profile-foot">
+        <button class="ghost-btn" id="profPrev">
+          <span class="text-zh">上 一 問</span>
+          <span class="text-en">Previous</span>
+        </button>
+        <button class="next-btn" id="profNext" disabled>
+          <span class="text-zh">下 一 問</span>
+          <span class="text-en">Next</span>
+        </button>
+      </div>
+
+      <!-- AI 思考過渡 -->
+      <div class="thinking-overlay" id="thinkOverlay">
+        <div class="enso-stack" style="width:200px;color:var(--primary)">
+          <svg class="enso breath" viewBox="0 0 160 160">
+            <path d="M80,18 C112,16 144,40 146,74 C149,112 124,142 88,145 C52,148 16,122 16,88 C16,52 44,20 80,18"/>
+          </svg>
+          <span class="glyph">思</span>
+        </div>
+        <div class="text-zh text-zh">為 您 配 一 杯 對 味 的 茶</div>
+        <div class="text-en text-en">Curating your perfect cup…</div>
+        <div class="dots"><span></span><span></span><span></span></div>
+      </div>
+    </section>
+
+
+    <!-- ════════════ PAGE 4：薦茶 (recommend) ════════════ -->
+    <section class="page page-recommend" data-page="recommend">
+      <div class="topbar">
+        <div class="back-btn" data-go="profile">
+          <span class="arrow">←</span>
+          <span class="text-zh">重 新 配 茶</span>
+          <span class="text-en">Adjust Preferences</span>
+        </div>
+        <div class="lang-toggle">
+          <button data-l="zh" class="on">中 文</button>
+          <button data-l="en">English</button>
+        </div>
+      </div>
+
+      <div class="rec-head">
+        <div class="lead-zh text-zh">為 您 備 上 三 杯 ， 各 有 風 味</div>
+        <div class="lead-en text-en">Three teas, each tuned to your palate</div>
+        <div class="your-tags">
+          <span class="tag text-zh">您 的 偏 好 ：</span>
+          <span class="tag text-en">Your preferences:</span>
+          <span class="tag text-zh">醇 厚</span><span class="tag text-en">Full-bodied</span>
+          <span class="tag text-zh">適 中</span><span class="tag text-en">Balanced</span>
+          <span class="tag text-zh">珍 珠</span><span class="tag text-en">Pearls</span>
+        </div>
+      </div>
+
+      <div class="rec-cards">
+        <!-- card 1 -->
+        <div class="rec-card" data-go="detail" data-tea="honey-oolong">
+          <svg class="tea-cup" viewBox="0 0 200 200">
+            <defs>
+              <radialGradient id="liq1" cx="50%" cy="40%" r="55%">
+                <stop offset="0%" stop-color="#D4A267"/>
+                <stop offset="100%" stop-color="#9B6A2E"/>
+              </radialGradient>
+            </defs>
+            <ellipse cx="100" cy="60" rx="62" ry="14" fill="url(#liq1)" opacity=".95"/>
+            <path d="M40,62 Q40,140 75,162 Q100,172 125,162 Q160,140 160,62 Z" fill="#FAF6EC" stroke="#9B6A2E" stroke-width="2"/>
+            <ellipse cx="100" cy="62" rx="60" ry="12" fill="url(#liq1)"/>
+            <path d="M158,80 Q188,82 188,108 Q188,134 158,134" fill="none" stroke="#9B6A2E" stroke-width="2"/>
+            <path d="M88,38 Q92,30 96,38 M104,38 Q108,30 112,38" fill="none" stroke="#9B6A2E" stroke-width="1.6" stroke-linecap="round" opacity=".5"/>
+          </svg>
+          <div class="name-zh text-zh">蜜 香 烏 龍</div>
+          <div class="name-en text-en">Honey Oolong</div>
+          <div class="name-pinyin">mì xiāng wū lóng</div>
+          <div class="flavor-tags">
+            <span class="tag"><span class="zh">醇 厚</span><span class="en">Full</span></span>
+            <span class="tag"><span class="zh">蜜 香</span><span class="en">Honey</span></span>
+            <span class="tag"><span class="zh">回 甘</span><span class="en">Mellow</span></span>
+          </div>
+          <div class="rec-reason">
+            <div class="head">
+              <span class="text-zh">為 您 推 薦</span>
+              <span class="head-en text-en">Why we picked this</span>
+            </div>
+            <p class="body-zh text-zh">您 喜 歡 醇 厚 茶 韻 ， 此 款 蜜 香 帶 蘭 花 尾 韻 ， 茶 體 厚 實 ， 與 珍 珠 相 得 益 彰 。</p>
+            <p class="body-en text-en">A full-bodied oolong with hints of honey and orchid finish — the chewy pearls bring out its mellow sweetness.</p>
+          </div>
+          <div class="price-cta">
+            <span class="price"><small>NT$</small>85</span>
+            <button class="view-btn">
+              <span class="text-zh">了 解 詳 情</span>
+              <span class="en text-en">View Details</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- card 2 (featured) -->
+        <div class="rec-card featured" data-go="detail" data-tea="dongding-milk">
+          <div class="badge">
+            <span class="text-zh">最 配 您</span>
+            <span class="badge-en text-en">Best Match</span>
+          </div>
+          <svg class="tea-cup" viewBox="0 0 200 200">
+            <defs>
+              <radialGradient id="liq2" cx="50%" cy="40%" r="55%">
+                <stop offset="0%" stop-color="#A87E50"/>
+                <stop offset="100%" stop-color="#6B4423"/>
+              </radialGradient>
+            </defs>
+            <ellipse cx="100" cy="60" rx="62" ry="14" fill="url(#liq2)" opacity=".95"/>
+            <path d="M40,62 Q40,140 75,162 Q100,172 125,162 Q160,140 160,62 Z" fill="#FAF6EC" stroke="#9B6A2E" stroke-width="2"/>
+            <ellipse cx="100" cy="62" rx="60" ry="12" fill="url(#liq2)"/>
+            <path d="M158,80 Q188,82 188,108 Q188,134 158,134" fill="none" stroke="#9B6A2E" stroke-width="2"/>
+            <circle cx="86" cy="120" r="6" fill="#1A1208" opacity=".7"/>
+            <circle cx="100" cy="130" r="6" fill="#1A1208" opacity=".7"/>
+            <circle cx="114" cy="120" r="6" fill="#1A1208" opacity=".7"/>
+            <circle cx="92" cy="138" r="5" fill="#1A1208" opacity=".7"/>
+            <circle cx="108" cy="138" r="5" fill="#1A1208" opacity=".7"/>
+            <path d="M88,38 Q92,28 96,38 M104,38 Q108,28 112,38 M96,30 Q100,20 104,30" fill="none" stroke="#9B6A2E" stroke-width="1.6" stroke-linecap="round" opacity=".6"/>
+          </svg>
+          <div class="name-zh text-zh">凍 頂 烏 龍 ・ 鮮 奶 茶</div>
+          <div class="name-en text-en">Dongding Oolong Milk Tea</div>
+          <div class="name-pinyin">dòng dǐng nǎi chá</div>
+          <div class="flavor-tags">
+            <span class="tag"><span class="zh">醇 厚</span><span class="en">Full</span></span>
+            <span class="tag"><span class="zh">焙 香</span><span class="en">Roasted</span></span>
+            <span class="tag"><span class="zh">奶 香</span><span class="en">Creamy</span></span>
+            <span class="tag"><span class="zh">珍 珠</span><span class="en">Pearls</span></span>
+          </div>
+          <div class="rec-reason">
+            <div class="head">
+              <span class="text-zh">為 您 推 薦</span>
+              <span class="head-en text-en">Why we picked this</span>
+            </div>
+            <p class="body-zh text-zh">凍 頂 烏 龍 重 焙 後 沉 香 撲 鼻 ， 與 鮮 奶 交 融 成 圓 潤 醇 厚 ， 完 全 對 應 您 的 三 個 偏 好 。</p>
+            <p class="body-en text-en">Roasted Dongding oolong meets fresh milk for a rich, balanced cup — and the pearls you asked for cap it perfectly.</p>
+          </div>
+          <div class="price-cta">
+            <span class="price"><small>NT$</small>95</span>
+            <button class="view-btn">
+              <span class="text-zh">了 解 詳 情</span>
+              <span class="en text-en">View Details</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- card 3 -->
+        <div class="rec-card" data-go="detail" data-tea="matcha-latte">
+          <svg class="tea-cup" viewBox="0 0 200 200">
+            <defs>
+              <radialGradient id="liq3" cx="50%" cy="40%" r="55%">
+                <stop offset="0%" stop-color="#9CAF7B"/>
+                <stop offset="100%" stop-color="#5C7240"/>
+              </radialGradient>
+            </defs>
+            <ellipse cx="100" cy="60" rx="62" ry="14" fill="url(#liq3)" opacity=".95"/>
+            <path d="M40,62 Q40,140 75,162 Q100,172 125,162 Q160,140 160,62 Z" fill="#FAF6EC" stroke="#9B6A2E" stroke-width="2"/>
+            <ellipse cx="100" cy="62" rx="60" ry="12" fill="url(#liq3)"/>
+            <path d="M158,80 Q188,82 188,108 Q188,134 158,134" fill="none" stroke="#9B6A2E" stroke-width="2"/>
+            <path d="M70,58 Q100,52 130,58 Q120,55 100,55 Q80,55 70,58 Z" fill="#FAF6EC" opacity=".5"/>
+            <path d="M88,40 Q92,28 96,40 M104,40 Q108,28 112,40" fill="none" stroke="#7A8C5C" stroke-width="1.6" stroke-linecap="round" opacity=".6"/>
+          </svg>
+          <div class="name-zh text-zh">朝 露 抹 茶 拿 鐵</div>
+          <div class="name-en text-en">Morning Dew Matcha Latte</div>
+          <div class="name-pinyin">zhāo lù mǒ chá ná tiě</div>
+          <div class="flavor-tags">
+            <span class="tag"><span class="zh">醇 厚</span><span class="en">Full</span></span>
+            <span class="tag"><span class="zh">草 香</span><span class="en">Grassy</span></span>
+            <span class="tag"><span class="zh">微 苦</span><span class="en">Bitter</span></span>
+          </div>
+          <div class="rec-reason">
+            <div class="head">
+              <span class="text-zh">為 您 推 薦</span>
+              <span class="head-en text-en">Why we picked this</span>
+            </div>
+            <p class="body-zh text-zh">京 都 一 番 抹 茶 細 研 ， 帶 微 苦 與 鮮 草 香 ， 適 合 想 嘗 試 不 同 茶 體 的 您 。</p>
+            <p class="body-en text-en">Stone-ground Kyoto ceremonial matcha — a slightly bitter, vegetal cup for those open to a new direction.</p>
+          </div>
+          <div class="price-cta">
+            <span class="price"><small>NT$</small>95</span>
+            <button class="view-btn">
+              <span class="text-zh">了 解 詳 情</span>
+              <span class="en text-en">View Details</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="rec-foot">
+        <div class="browse-link" data-go="menu">
+          <span class="text-zh">看 看 完 整 茶 單</span>
+          <span class="en text-en">Browse the full menu</span>
+          <span style="font-size:18px">→</span>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- ════════════ PAGE 5：品茶 (detail) ════════════ -->
+    <section class="page page-detail" data-page="detail">
+      <div class="topbar">
+        <div class="back-btn" data-go="recommend">
+          <span class="arrow">←</span>
+          <span class="text-zh">返 回</span>
+          <span class="text-en">Back</span>
+        </div>
+        <div class="lang-toggle">
+          <button data-l="zh" class="on">中 文</button>
+          <button data-l="en">English</button>
+        </div>
+      </div>
+
+      <!-- LEFT: hero illustration（可翻面，背面是「細品此茶」） -->
+      <div class="detail-left" id="detailLeft">
+        <button class="flip-toggle" id="flipToggle" type="button" aria-label="切換茶卡片背面">
+          <span class="lbl-front">
+            <span class="text-zh">細 品 此 茶</span>
+            <span class="text-en">About</span>
+          </span>
+          <span class="lbl-back">
+            <span class="text-zh">回 到 茶 杯</span>
+            <span class="text-en">Back</span>
+          </span>
+          <span class="ic">↻</span>
+        </button>
+        <div class="flip-inner">
+          <!-- 正面：茶杯插畫 -->
+          <div class="flip-face flip-front">
+            <svg class="detail-tea-cup" id="detailCup" viewBox="0 0 200 200">
+              <defs>
+                <radialGradient id="liqD" cx="50%" cy="40%" r="55%">
+                  <stop offset="0%"   stop-color="#A87E50" id="liqDtop"/>
+                  <stop offset="100%" stop-color="#6B4423" id="liqDbot"/>
+                </radialGradient>
+              </defs>
+              <ellipse cx="100" cy="60" rx="62" ry="14" fill="url(#liqD)" opacity=".95"/>
+              <path d="M40,62 Q40,140 75,162 Q100,172 125,162 Q160,140 160,62 Z" fill="#FAF6EC" stroke="#9B6A2E" stroke-width="2"/>
+              <ellipse cx="100" cy="62" rx="60" ry="12" fill="url(#liqD)"/>
+              <path d="M158,80 Q188,82 188,108 Q188,134 158,134" fill="none" stroke="#9B6A2E" stroke-width="2"/>
+              <g id="detailCupDecor">
+                <circle cx="86" cy="120" r="6" fill="#1A1208" opacity=".7"/>
+                <circle cx="100" cy="130" r="6" fill="#1A1208" opacity=".7"/>
+                <circle cx="114" cy="120" r="6" fill="#1A1208" opacity=".7"/>
+                <circle cx="92" cy="138" r="5" fill="#1A1208" opacity=".7"/>
+                <circle cx="108" cy="138" r="5" fill="#1A1208" opacity=".7"/>
+              </g>
+              <path d="M88,38 Q92,28 96,38 M104,38 Q108,28 112,38 M96,30 Q100,20 104,30" fill="none" stroke="#9B6A2E" stroke-width="1.6" stroke-linecap="round" opacity=".6"/>
+            </svg>
+            <div class="detail-vertical" id="detailVertical">凍 頂 一 味 ・ 焙 火 沉 香</div>
+            <div class="detail-stamp">
+              <span class="seal">茶</span>
+              <span class="text" id="detailStampText">凍 頂 ・ 鹿 谷</span>
+            </div>
+          </div>
+          <!-- 背面：細品此茶 -->
+          <div class="flip-face flip-back">
+            <div class="detail-meta">
+              <div class="item">
+                <div class="lbl text-zh">產 地</div>
+                <div class="lbl-en text-en">Origin</div>
+                <div class="val" id="dOrigin">南 投 鹿 谷</div>
+              </div>
+              <div class="item">
+                <div class="lbl text-zh">烘 焙</div>
+                <div class="lbl-en text-en">Roast</div>
+                <div class="val" id="dRoast">中 焙</div>
+              </div>
+              <div class="item">
+                <div class="lbl text-zh">咖 啡 因</div>
+                <div class="lbl-en text-en">Caffeine</div>
+                <div class="val" id="dCaffeine">中 等</div>
+              </div>
+            </div>
+            <div class="detail-flavor">
+              <svg class="flavor-radar" viewBox="0 0 200 200">
+                <g stroke="#DCD3C0" stroke-width="1" fill="none">
+                  <polygon points="100,20 167,55 167,135 100,180 33,135 33,55"/>
+                  <polygon points="100,40 150,67 150,123 100,160 50,123 50,67"/>
+                  <polygon points="100,60 134,80 134,110 100,140 66,110 66,80"/>
+                  <polygon points="100,80 117,93 117,107 100,120 83,107 83,93"/>
+                  <line x1="100" y1="100" x2="100" y2="20"/>
+                  <line x1="100" y1="100" x2="167" y2="55"/>
+                  <line x1="100" y1="100" x2="167" y2="135"/>
+                  <line x1="100" y1="100" x2="100" y2="180"/>
+                  <line x1="100" y1="100" x2="33" y2="135"/>
+                  <line x1="100" y1="100" x2="33" y2="55"/>
+                </g>
+                <polygon id="radarShape"
+                         points="100,28 160,60 154,128 100,156 56,118 50,68"
+                         fill="rgba(155,106,46,.30)" stroke="#9B6A2E" stroke-width="2"
+                         style="transition:all .6s ease"/>
+                <g font-family="Noto Serif TC" font-size="13" fill="#78655A" text-anchor="middle">
+                  <text x="100" y="14"  id="radarL1">醇</text>
+                  <text x="178" y="58"  id="radarL2">焙</text>
+                  <text x="178" y="142" id="radarL3">香</text>
+                  <text x="100" y="196" id="radarL4">甜</text>
+                  <text x="22"  y="142" id="radarL5">苦</text>
+                  <text x="22"  y="58"  id="radarL6">鮮</text>
+                </g>
+              </svg>
+              <div class="flavor-list" id="flavorList"></div>
+            </div>
+            <div class="detail-desc">
+              <div class="head">
+                <span class="seal">韻</span>
+                <span class="ttl text-zh">一 茶 一 味</span>
+                <span class="ttl-en text-en">Tasting Notes</span>
+              </div>
+              <p class="body-zh text-zh" id="dNotesZh">入 口 焙 火 香 氣 飽 滿 ， 中 段 鮮 奶 化 開 後 ， 烏 龍 的 蘭 花 尾 韻 緩 緩 浮 出 。 茶 體 沉 穩 ， 餘 韻 帶 一 絲 桂 圓 蜜 糖 ， 是 一 杯 適 合 慢 飲 的 奶 茶 。</p>
+              <p class="body-en text-en" id="dNotesEn">A medium-roast Dongding oolong meets steamed dairy. The first sip carries toasted warmth; mid-palate, milk softens it into a creamy body, with an orchid-and-longan finish that lingers. Best sipped slowly.</p>
+            </div>
+            <div class="pairing-card" id="pairingCard">
+              <div class="head">
+                <span class="seal">配</span>
+                <span class="ttl-zh text-zh">同 款 好 搭</span>
+                <span class="ttl-en text-en">Perfect Pairings</span>
+              </div>
+              <div class="body" id="pairingBody"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT: info -->
+      <div class="detail-right">
+        <div class="detail-name">
+          <div class="zh text-zh" id="dName">凍 頂 烏 龍 ・ 鮮 奶 茶</div>
+          <div class="en text-en" id="dNameEn">Dongding Oolong Milk Tea</div>
+        </div>
+
+        <!-- 侍茶小語 (Sommelier's Note) -->
+        <div class="sommelier-note" id="sommelierNote">
+          <div class="avatar">
+            <svg viewBox="0 0 50 50">
+              <path d="M25,5 C36,4.5 46,14 47,25 C48,38 38,46 26,47 C14,48 3,40 3,28 C3,17 13,5.5 25,5"/>
+            </svg>
+            <span class="glyph">侍</span>
+          </div>
+          <div class="content">
+            <div class="head-line">
+              <span class="ttl text-zh">侍 茶 小 語</span>
+              <span class="ttl-en text-en">Sommelier's Note</span>
+            </div>
+            <p class="body-zh text-zh" id="sommelierZh">凍 頂 烏 龍 以 中 焙 著 稱 ， 與 鮮 奶 最 為 相 得 。 半 糖 微 冰 加 珍 珠 為 經 典 配 法 。</p>
+            <p class="body-en text-en" id="sommelierEn">Dongding's medium roast pairs beautifully with milk. Half-sugar, light-ice with pearls is the classic configuration.</p>
+          </div>
+        </div>
+
+        <!-- 客製化（依 options.json 真實數據） -->
+        <div class="detail-custom" id="detailCustom">
+          <div class="custom-group" data-opt-type="size">
+            <div class="lbl text-zh">杯 量</div>
+            <div class="lbl-en text-en">Size</div>
+            <div class="opts">
+              <button data-opt-value="M">中 杯</button>
+              <button class="on" data-opt-value="L">大 杯</button>
+            </div>
+          </div>
+          <div class="custom-group" data-opt-type="sugar">
+            <div class="lbl text-zh">甜 度</div>
+            <div class="lbl-en text-en">Sugar</div>
+            <div class="opts">
+              <button data-opt-value="full">多 糖</button>
+              <button data-opt-value="normal">正 常 糖</button>
+              <button data-opt-value="light">少 糖</button>
+              <button class="on" data-opt-value="half">半 糖</button>
+              <button data-opt-value="tiny">微 糖</button>
+              <button data-opt-value="none">無 糖</button>
+            </div>
+          </div>
+          <div class="custom-group" data-opt-type="ice">
+            <div class="lbl text-zh">冰 量</div>
+            <div class="lbl-en text-en">Ice</div>
+            <div class="opts">
+              <button data-opt-value="iceful">多 冰</button>
+              <button data-opt-value="normal">正 常 冰</button>
+              <button class="on" data-opt-value="less">少 冰</button>
+              <button data-opt-value="noice">去 冰</button>
+              <button data-opt-value="warm">常 溫</button>
+              <button data-opt-value="mild">溫</button>
+              <button data-opt-value="hot">熱</button>
+            </div>
+          </div>
+          <div class="custom-group" data-opt-type="topping" data-opt-multi="true">
+            <div class="lbl text-zh">加 料 <span class="hint" style="font-size:10px;letter-spacing:.2em;color:var(--ink-mute);margin-left:6px">可 複 選</span></div>
+            <div class="lbl-en text-en">Toppings <em style="font-style:italic;font-size:11px;color:var(--ink-mute);margin-left:4px">multi-select</em></div>
+            <div class="opts chips">
+              <button class="on" data-opt-value="pearl">珍 珠 <span class="plus">+10</span></button>
+              <button data-opt-value="taro">小 芋 圓 <span class="plus">+10</span></button>
+              <button data-opt-value="mix">混 珠 <span class="plus">+10</span></button>
+              <button data-opt-value="grass">仙 草 <span class="plus">+10</span></button>
+              <button data-opt-value="honey">蜂 蜜 <span class="plus">+30</span></button>
+              <button data-opt-value="shiso">小 紫 蘇 <span class="plus">+10</span></button>
+            </div>
+          </div>
+          <div class="custom-group" data-opt-type="extra" data-opt-multi="true">
+            <div class="lbl text-zh">其 他</div>
+            <div class="lbl-en text-en">Extras</div>
+            <div class="opts chips">
+              <button data-opt-value="byo">自 帶 杯</button>
+              <button data-opt-value="more">料 多</button>
+              <button data-opt-value="less">料 少</button>
+              <button data-opt-value="notea">無 茶</button>
+              <button data-opt-value="alltea">全 茶</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- AI 客製化提醒 (Reactive Hint) -->
+        <div class="ai-hint empty" id="aiHint" data-level="tip">
+          <div class="avatar">侍</div>
+          <div class="content">
+            <span class="lvl-badge"><span class="text-zh">建 議</span><span class="en text-en">Tip</span></span>
+            <p class="msg-zh text-zh"></p>
+            <p class="msg-en text-en"></p>
+            <button class="apply-btn" id="applyHintBtn" style="display:none">
+              <span class="text-zh">採 納 侍 茶 建 議</span>
+              <span class="en text-en">Apply Suggestion</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 侍茶為我配（獨立主要 CTA） -->
+        <div class="sommelier-best standalone" id="sommelierBest">
+          <span class="stroke">薦</span>
+          <div class="text">
+            <span class="text-zh">侍 茶 為 我 配 一 杯 最 對 味 的</span>
+            <span class="text-en">Let the sommelier choose the best preset</span>
+          </div>
+          <span class="arrow">→</span>
+        </div>
+
+        <!-- 加入茶籃 -->
+        <div class="detail-actions">
+          <div class="qty-stepper">
+            <button>－</button>
+            <span class="n">1</span>
+            <button>＋</button>
+          </div>
+          <button class="add-btn" data-go="cart">
+            <span class="text-zh">加 入 茶 籃</span>
+            <span class="text-en">Add to Cart</span>
+            <span class="price" id="dPrice"><small>NT$</small>95</span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- ════════════ PAGE 6：茶單 (menu) ════════════ -->
+    <section class="page page-menu" data-page="menu">
+      <div class="topbar">
+        <div class="back-btn" data-go="path">
+          <span class="arrow">←</span>
+          <span class="text-zh">返 回</span>
+          <span class="text-en">Back</span>
+        </div>
+        <div class="lang-toggle">
+          <button data-l="zh" class="on">中 文</button>
+          <button data-l="en">English</button>
+        </div>
+      </div>
+
+      <div class="menu-main">
+        <div class="menu-tabs">
+          <button class="menu-tab on">
+            <span class="zh">全 部</span>
+            <span class="en">All</span>
+          </button>
+          <button class="menu-tab">
+            <span class="zh">烏 龍</span>
+            <span class="en">Oolong</span>
+          </button>
+          <button class="menu-tab">
+            <span class="zh">綠 茶</span>
+            <span class="en">Green</span>
+          </button>
+          <button class="menu-tab">
+            <span class="zh">紅 茶</span>
+            <span class="en">Black</span>
+          </button>
+          <button class="menu-tab">
+            <span class="zh">抹 茶</span>
+            <span class="en">Matcha</span>
+          </button>
+          <button class="menu-tab">
+            <span class="zh">鮮 奶 茶</span>
+            <span class="en">Milk Tea</span>
+          </button>
+        </div>
+
+        <div class="menu-grid">
+          <div class="menu-card" data-go="detail" data-tea="honey-green">
+            <svg class="tea-cup" viewBox="0 0 200 200">
+              <ellipse cx="100" cy="60" rx="62" ry="14" fill="#A8B070" opacity=".9"/>
+              <path d="M40,62 Q40,140 75,162 Q100,172 125,162 Q160,140 160,62 Z" fill="#FAF6EC" stroke="#9B6A2E" stroke-width="2"/>
+              <ellipse cx="100" cy="62" rx="60" ry="12" fill="#A8B070"/>
+            </svg>
+            <div class="info">
+              <div class="name-zh text-zh">蜂 蜜 綠 茶</div>
+              <div class="name-en text-en">Honey Green Tea</div>
+              <div class="price"><small>NT$</small>80</div>
+              <div class="info-btn text-zh">點 擊 看 風 味 ・ Tap for flavor</div>
+            </div>
+          </div>
+          <div class="menu-card" data-go="detail" data-tea="honey-oolong">
+            <svg class="tea-cup" viewBox="0 0 200 200">
+              <ellipse cx="100" cy="60" rx="62" ry="14" fill="#9B6A2E" opacity=".9"/>
+              <path d="M40,62 Q40,140 75,162 Q100,172 125,162 Q160,140 160,62 Z" fill="#FAF6EC" stroke="#9B6A2E" stroke-width="2"/>
+              <ellipse cx="100" cy="62" rx="60" ry="12" fill="#9B6A2E"/>
+            </svg>
+            <div class="info">
+              <div class="name-zh text-zh">蜜 香 烏 龍</div>
+              <div class="name-en text-en">Honey Oolong</div>
+              <div class="price"><small>NT$</small>85</div>
+              <div class="info-btn text-zh">點 擊 看 風 味 ・ Tap for flavor</div>
+            </div>
+          </div>
+          <div class="menu-card" data-go="detail" data-tea="dongding-milk">
+            <svg class="tea-cup" viewBox="0 0 200 200">
+              <ellipse cx="100" cy="60" rx="62" ry="14" fill="#6B4423" opacity=".9"/>
+              <path d="M40,62 Q40,140 75,162 Q100,172 125,162 Q160,140 160,62 Z" fill="#FAF6EC" stroke="#9B6A2E" stroke-width="2"/>
+              <ellipse cx="100" cy="62" rx="60" ry="12" fill="#6B4423"/>
+            </svg>
+            <div class="info">
+              <div class="name-zh text-zh">凍 頂 烏 龍 鮮 奶 茶</div>
+              <div class="name-en text-en">Dongding Milk Tea</div>
+              <div class="price"><small>NT$</small>95</div>
+              <div class="info-btn text-zh">點 擊 看 風 味 ・ Tap for flavor</div>
+            </div>
+          </div>
+          <div class="menu-card" data-go="detail" data-tea="matcha-latte">
+            <svg class="tea-cup" viewBox="0 0 200 200">
+              <ellipse cx="100" cy="60" rx="62" ry="14" fill="#7A8C5C" opacity=".9"/>
+              <path d="M40,62 Q40,140 75,162 Q100,172 125,162 Q160,140 160,62 Z" fill="#FAF6EC" stroke="#9B6A2E" stroke-width="2"/>
+              <ellipse cx="100" cy="62" rx="60" ry="12" fill="#7A8C5C"/>
+            </svg>
+            <div class="info">
+              <div class="name-zh text-zh">朝 露 抹 茶 拿 鐵</div>
+              <div class="name-en text-en">Matcha Latte</div>
+              <div class="price"><small>NT$</small>95</div>
+              <div class="info-btn text-zh">點 擊 看 風 味 ・ Tap for flavor</div>
+            </div>
+          </div>
+          <div class="menu-card" data-go="detail" data-tea="sun-moon-black">
+            <svg class="tea-cup" viewBox="0 0 200 200">
+              <ellipse cx="100" cy="60" rx="62" ry="14" fill="#B84040" opacity=".85"/>
+              <path d="M40,62 Q40,140 75,162 Q100,172 125,162 Q160,140 160,62 Z" fill="#FAF6EC" stroke="#9B6A2E" stroke-width="2"/>
+              <ellipse cx="100" cy="62" rx="60" ry="12" fill="#B84040"/>
+            </svg>
+            <div class="info">
+              <div class="name-zh text-zh">日 月 潭 紅 茶</div>
+              <div class="name-en text-en">Sun Moon Lake Black</div>
+              <div class="price"><small>NT$</small>75</div>
+              <div class="info-btn text-zh">點 擊 看 風 味 ・ Tap for flavor</div>
+            </div>
+          </div>
+          <div class="menu-card" data-go="detail" data-tea="classic-milk">
+            <svg class="tea-cup" viewBox="0 0 200 200">
+              <ellipse cx="100" cy="60" rx="62" ry="14" fill="#C9A678" opacity=".9"/>
+              <path d="M40,62 Q40,140 75,162 Q100,172 125,162 Q160,140 160,62 Z" fill="#FAF6EC" stroke="#9B6A2E" stroke-width="2"/>
+              <ellipse cx="100" cy="62" rx="60" ry="12" fill="#C9A678"/>
+            </svg>
+            <div class="info">
+              <div class="name-zh text-zh">經 典 鮮 奶 茶</div>
+              <div class="name-en text-en">Classic Milk Tea</div>
+              <div class="price"><small>NT$</small>70</div>
+              <div class="info-btn text-zh">點 擊 看 風 味 ・ Tap for flavor</div>
+            </div>
+          </div>
+          <div class="menu-card" data-go="detail" data-tea="oriental-beauty">
+            <svg class="tea-cup" viewBox="0 0 200 200">
+              <ellipse cx="100" cy="60" rx="62" ry="14" fill="#D4A267" opacity=".9"/>
+              <path d="M40,62 Q40,140 75,162 Q100,172 125,162 Q160,140 160,62 Z" fill="#FAF6EC" stroke="#9B6A2E" stroke-width="2"/>
+              <ellipse cx="100" cy="62" rx="60" ry="12" fill="#D4A267"/>
+            </svg>
+            <div class="info">
+              <div class="name-zh text-zh">東 方 美 人</div>
+              <div class="name-en text-en">Oriental Beauty</div>
+              <div class="price"><small>NT$</small>110</div>
+              <div class="info-btn text-zh">點 擊 看 風 味 ・ Tap for flavor</div>
+            </div>
+          </div>
+          <div class="menu-card" data-go="detail" data-tea="osmanthus-oolong">
+            <svg class="tea-cup" viewBox="0 0 200 200">
+              <ellipse cx="100" cy="60" rx="62" ry="14" fill="#A87E50" opacity=".9"/>
+              <path d="M40,62 Q40,140 75,162 Q100,172 125,162 Q160,140 160,62 Z" fill="#FAF6EC" stroke="#9B6A2E" stroke-width="2"/>
+              <ellipse cx="100" cy="62" rx="60" ry="12" fill="#A87E50"/>
+            </svg>
+            <div class="info">
+              <div class="name-zh text-zh">桂 花 烏 龍</div>
+              <div class="name-en text-en">Osmanthus Oolong</div>
+              <div class="price"><small>NT$</small>85</div>
+              <div class="info-btn text-zh">點 擊 看 風 味 ・ Tap for flavor</div>
+            </div>
+          </div>
+          <div class="menu-card" data-go="detail" data-tea="genmaicha">
+            <svg class="tea-cup" viewBox="0 0 200 200">
+              <ellipse cx="100" cy="60" rx="62" ry="14" fill="#5C7240" opacity=".9"/>
+              <path d="M40,62 Q40,140 75,162 Q100,172 125,162 Q160,140 160,62 Z" fill="#FAF6EC" stroke="#9B6A2E" stroke-width="2"/>
+              <ellipse cx="100" cy="62" rx="60" ry="12" fill="#5C7240"/>
+            </svg>
+            <div class="info">
+              <div class="name-zh text-zh">玄 米 煎 茶</div>
+              <div class="name-en text-en">Genmaicha</div>
+              <div class="price"><small>NT$</small>80</div>
+              <div class="info-btn text-zh">點 擊 看 風 味 ・ Tap for flavor</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <aside class="menu-side">
+        <div class="menu-cart-head">
+          <div>
+            <span class="ttl text-zh">茶 籃</span>
+            <span class="ttl-en text-en">Cart</span>
+          </div>
+          <span class="count">1</span>
+        </div>
+
+        <div class="menu-cart-list">
+          <div class="row">
+            <div>
+              <div class="name"><span class="zh">凍 頂 烏 龍 鮮 奶 茶</span><span class="en text-en">Dongding Milk Tea</span></div>
+              <div class="meta">大 杯 ・ 半 糖 ・ 微 冰 ・ 珍 珠</div>
+            </div>
+            <div class="price"><small>$</small>95</div>
+          </div>
+        </div>
+
+        <div class="menu-cart-foot">
+          <div class="total">
+            <span class="lbl text-zh">合 計</span>
+            <span class="num"><small>NT$</small>95</span>
+          </div>
+          <button class="menu-checkout" data-go="cart">
+            <span class="text-zh">前 往 結 帳</span>
+            <span class="en text-en">Checkout</span>
+          </button>
+          <div class="ai-floater" data-go="profile">
+            <span class="stroke">薦</span>
+            <div>
+              <div class="text-zh text-zh">不 知 道 喝 什 麼？讓 A I 幫 你</div>
+              <div class="text-en text-en">Not sure? Let our AI help.</div>
+            </div>
+            <span class="arrow">→</span>
+          </div>
+        </div>
+      </aside>
+    </section>
+
+
+    <!-- ════════════ PAGE 7：茶籃 (cart) ════════════ -->
+    <section class="page page-cart" data-page="cart">
+      <div class="topbar">
+        <div class="back-btn" data-go="menu">
+          <span class="arrow">←</span>
+          <span class="text-zh">繼 續 選 茶</span>
+          <span class="text-en">Keep Browsing</span>
+        </div>
+        <div class="lang-toggle">
+          <button data-l="zh" class="on">中 文</button>
+          <button data-l="en">English</button>
+        </div>
+      </div>
+
+      <div class="cart-h2">
+        <div class="zh text-zh">茶 籃 ・ 確 認 點 單</div>
+        <div class="en text-en">Review Your Order</div>
+      </div>
+
+      <div class="cart-grid">
+        <div class="cart-items">
+          <div class="cart-item" data-tea="dongding-milk">
+            <svg class="tea-cup" viewBox="0 0 200 200">
+              <ellipse cx="100" cy="60" rx="62" ry="14" fill="#6B4423" opacity=".9"/>
+              <path d="M40,62 Q40,140 75,162 Q100,172 125,162 Q160,140 160,62 Z" fill="#FAF6EC" stroke="#9B6A2E" stroke-width="2"/>
+              <ellipse cx="100" cy="62" rx="60" ry="12" fill="#6B4423"/>
+            </svg>
+            <div class="info">
+              <div class="name-zh text-zh">凍 頂 烏 龍 鮮 奶 茶</div>
+              <div class="name-en text-en">Dongding Oolong Milk Tea</div>
+              <div class="meta">大 杯 ・ 半 糖 ・ 少 冰 ・ 加 珍 珠</div>
+            </div>
+            <button class="edit" type="button" aria-label="修改品項">✎</button>
+            <div class="qty">
+              <button>－</button><span class="n">1</span><button>＋</button>
+            </div>
+            <div class="price"><small>NT$</small>95</div>
+            <div class="cart-item-edit" data-edit-init="size:L;sugar:half;ice:less;topping:pearl">
+              <div class="row"><span class="ttl text-zh">杯 量</span><span class="ttl ttl-en text-en">Size</span><div class="chips" data-opt-type="size"><button data-opt-value="M">中 杯</button><button class="on" data-opt-value="L">大 杯</button></div></div>
+              <div class="row"><span class="ttl text-zh">甜 度</span><span class="ttl ttl-en text-en">Sugar</span><div class="chips" data-opt-type="sugar"><button data-opt-value="full">多 糖</button><button data-opt-value="normal">正 常 糖</button><button data-opt-value="light">少 糖</button><button class="on" data-opt-value="half">半 糖</button><button data-opt-value="tiny">微 糖</button><button data-opt-value="none">無 糖</button></div></div>
+              <div class="row"><span class="ttl text-zh">冰 量</span><span class="ttl ttl-en text-en">Ice</span><div class="chips" data-opt-type="ice"><button data-opt-value="iceful">多 冰</button><button data-opt-value="normal">正 常 冰</button><button class="on" data-opt-value="less">少 冰</button><button data-opt-value="noice">去 冰</button><button data-opt-value="warm">常 溫</button><button data-opt-value="hot">熱</button></div></div>
+              <div class="row"><span class="ttl text-zh">加 料</span><span class="ttl ttl-en text-en">Toppings</span><div class="chips" data-opt-type="topping" data-multi="true"><button class="on" data-opt-value="pearl">珍 珠 <span class="plus">+10</span></button><button data-opt-value="taro">小 芋 圓 <span class="plus">+10</span></button><button data-opt-value="grass">仙 草 <span class="plus">+10</span></button><button data-opt-value="honey">蜂 蜜 <span class="plus">+30</span></button></div></div>
+              <div class="actions"><button class="danger" data-edit-action="remove"><span class="text-zh">移 除</span><span class="text-en">Remove</span></button><button data-edit-action="cancel"><span class="text-zh">取 消</span><span class="text-en">Cancel</span></button><button class="save" data-edit-action="save"><span class="text-zh">儲 存</span><span class="text-en">Save</span></button></div>
+            </div>
+          </div>
+
+          <div class="cart-item" data-tea="honey-oolong">
+            <svg class="tea-cup" viewBox="0 0 200 200">
+              <ellipse cx="100" cy="60" rx="62" ry="14" fill="#9B6A2E" opacity=".9"/>
+              <path d="M40,62 Q40,140 75,162 Q100,172 125,162 Q160,140 160,62 Z" fill="#FAF6EC" stroke="#9B6A2E" stroke-width="2"/>
+              <ellipse cx="100" cy="62" rx="60" ry="12" fill="#9B6A2E"/>
+            </svg>
+            <div class="info">
+              <div class="name-zh text-zh">蜜 香 烏 龍</div>
+              <div class="name-en text-en">Honey Oolong</div>
+              <div class="meta">中 杯 ・ 微 糖 ・ 去 冰</div>
+            </div>
+            <button class="edit" type="button" aria-label="修改品項">✎</button>
+            <div class="qty">
+              <button>－</button><span class="n">1</span><button>＋</button>
+            </div>
+            <div class="price"><small>NT$</small>75</div>
+            <div class="cart-item-edit" data-edit-init="size:M;sugar:tiny;ice:noice;topping:">
+              <div class="row"><span class="ttl text-zh">杯 量</span><span class="ttl ttl-en text-en">Size</span><div class="chips" data-opt-type="size"><button class="on" data-opt-value="M">中 杯</button><button data-opt-value="L">大 杯</button></div></div>
+              <div class="row"><span class="ttl text-zh">甜 度</span><span class="ttl ttl-en text-en">Sugar</span><div class="chips" data-opt-type="sugar"><button data-opt-value="full">多 糖</button><button data-opt-value="normal">正 常 糖</button><button data-opt-value="light">少 糖</button><button data-opt-value="half">半 糖</button><button class="on" data-opt-value="tiny">微 糖</button><button data-opt-value="none">無 糖</button></div></div>
+              <div class="row"><span class="ttl text-zh">冰 量</span><span class="ttl ttl-en text-en">Ice</span><div class="chips" data-opt-type="ice"><button data-opt-value="iceful">多 冰</button><button data-opt-value="normal">正 常 冰</button><button data-opt-value="less">少 冰</button><button class="on" data-opt-value="noice">去 冰</button><button data-opt-value="warm">常 溫</button><button data-opt-value="hot">熱</button></div></div>
+              <div class="row"><span class="ttl text-zh">加 料</span><span class="ttl ttl-en text-en">Toppings</span><div class="chips" data-opt-type="topping" data-multi="true"><button data-opt-value="pearl">珍 珠 <span class="plus">+10</span></button><button data-opt-value="taro">小 芋 圓 <span class="plus">+10</span></button><button data-opt-value="grass">仙 草 <span class="plus">+10</span></button><button data-opt-value="honey">蜂 蜜 <span class="plus">+30</span></button></div></div>
+              <div class="actions"><button class="danger" data-edit-action="remove"><span class="text-zh">移 除</span><span class="text-en">Remove</span></button><button data-edit-action="cancel"><span class="text-zh">取 消</span><span class="text-en">Cancel</span></button><button class="save" data-edit-action="save"><span class="text-zh">儲 存</span><span class="text-en">Save</span></button></div>
+            </div>
+          </div>
+
+          <div class="cart-item" data-tea="matcha-latte">
+            <svg class="tea-cup" viewBox="0 0 200 200">
+              <ellipse cx="100" cy="60" rx="62" ry="14" fill="#7A8C5C" opacity=".9"/>
+              <path d="M40,62 Q40,140 75,162 Q100,172 125,162 Q160,140 160,62 Z" fill="#FAF6EC" stroke="#9B6A2E" stroke-width="2"/>
+              <ellipse cx="100" cy="62" rx="60" ry="12" fill="#7A8C5C"/>
+            </svg>
+            <div class="info">
+              <div class="name-zh text-zh">朝 露 抹 茶 拿 鐵</div>
+              <div class="name-en text-en">Morning Dew Matcha Latte</div>
+              <div class="meta">中 杯 ・ 無 糖 ・ 熱</div>
+            </div>
+            <button class="edit" type="button" aria-label="修改品項">✎</button>
+            <div class="qty">
+              <button>－</button><span class="n">1</span><button>＋</button>
+            </div>
+            <div class="price"><small>NT$</small>95</div>
+            <div class="cart-item-edit" data-edit-init="size:M;sugar:none;ice:hot;topping:">
+              <div class="row"><span class="ttl text-zh">杯 量</span><span class="ttl ttl-en text-en">Size</span><div class="chips" data-opt-type="size"><button class="on" data-opt-value="M">中 杯</button><button data-opt-value="L">大 杯</button></div></div>
+              <div class="row"><span class="ttl text-zh">甜 度</span><span class="ttl ttl-en text-en">Sugar</span><div class="chips" data-opt-type="sugar"><button data-opt-value="full">多 糖</button><button data-opt-value="normal">正 常 糖</button><button data-opt-value="light">少 糖</button><button data-opt-value="half">半 糖</button><button data-opt-value="tiny">微 糖</button><button class="on" data-opt-value="none">無 糖</button></div></div>
+              <div class="row"><span class="ttl text-zh">冰 量</span><span class="ttl ttl-en text-en">Ice</span><div class="chips" data-opt-type="ice"><button data-opt-value="iceful">多 冰</button><button data-opt-value="normal">正 常 冰</button><button data-opt-value="less">少 冰</button><button data-opt-value="noice">去 冰</button><button data-opt-value="warm">常 溫</button><button class="on" data-opt-value="hot">熱</button></div></div>
+              <div class="actions"><button class="danger" data-edit-action="remove"><span class="text-zh">移 除</span><span class="text-en">Remove</span></button><button data-edit-action="cancel"><span class="text-zh">取 消</span><span class="text-en">Cancel</span></button><button class="save" data-edit-action="save"><span class="text-zh">儲 存</span><span class="text-en">Save</span></button></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="cart-summary">
+          <div class="summary-row">
+            <span class="l text-zh">小 計</span><span class="l lbl-en text-en">Subtotal</span>
+            <span class="v">NT$ 265</span>
+          </div>
+          <div class="summary-row">
+            <span class="l text-zh">會 員 折 扣</span><span class="l lbl-en text-en">Discount</span>
+            <span class="v" style="color:var(--vermilion)">- NT$ 10</span>
+          </div>
+
+          <div class="pickup-mode">
+            <button class="on">
+              <span class="glyph">內</span>
+              <span class="zh text-zh">內 用</span>
+              <span class="en text-en">Dine In</span>
+            </button>
+            <button>
+              <span class="glyph">外</span>
+              <span class="zh text-zh">外 帶</span>
+              <span class="en text-en">Take Away</span>
+            </button>
+          </div>
+
+          <div class="summary-row total">
+            <span class="l text-zh">合 計</span><span class="l lbl-en text-en">Total</span>
+            <span class="v"><small>NT$</small>255</span>
+          </div>
+
+          <button class="checkout-final" data-go="done">
+            <span class="text-zh">結 帳 取 餐</span>
+            <span class="en text-en">Pay & Order</span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- ════════════ PAGE 8：取餐完成 (done) ════════════ -->
+    <section class="page page-done" data-page="done">
+      <div class="vertical-cipher done-vertical">茶 涼 心 不 涼 ・ 慢 行 莫 急 還</div>
+
+      <div class="done-card">
+        <div class="enso-stack done-enso">
+          <svg class="enso breath" viewBox="0 0 160 160">
+            <path d="M80,18 C112,16 144,40 146,74 C149,112 124,142 88,145 C52,148 16,122 16,88 C16,52 44,20 80,18"/>
+          </svg>
+          <span class="glyph">成</span>
+        </div>
+
+        <h1 class="done-title text-zh">茶 已 備 妥</h1>
+        <p class="done-title-en text-en">Your Tea is Ready</p>
+        <p class="done-sub">願 此 一 杯 ， 滌 塵 養 心 ・ A cup, a moment</p>
+
+        <div class="pickup">
+          <span class="lbl text-zh">取 餐 之 號</span>
+          <span class="lbl-en text-en">Pickup Number</span>
+          <span class="number">B 0 8 8</span>
+          <svg class="number-underline" viewBox="0 0 340 8" preserveAspectRatio="none">
+            <path d="M2,5 C70,2 130,5 170,4 C210,3 270,6 338,3"
+                  fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" opacity=".75"/>
+          </svg>
+        </div>
+
+        <div class="done-pay">
+          <span class="text-zh">線 上 付 訖</span>
+          <span class="text-en">Paid</span>
+          <span class="vbar"></span>
+          <span class="num">NT$ 255</span>
+        </div>
+
+        <p class="done-tip text-zh">付 款 完 成 ， 請 至 出 茶 處 候 茶</p>
+        <p class="done-tip-en text-en">Please proceed to the pickup counter</p>
+
+        <div class="done-bottom">
+          <div class="countdown">
+            <svg viewBox="0 0 60 60"><circle cx="30" cy="30" r="28"/></svg>
+            <span>十</span>
+          </div>
+          <div class="text">
+            <span class="text-zh">秒 後 自 返</span>
+            <span class="text-en">auto return</span>
+          </div>
+        </div>
+
+        <div class="done-signature">
+          <span class="seal" style="font-size:22px;width:44px;height:44px">蟬</span>
+          <span class="text">一 期 一 會</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ════════════ 侍茶 AI ・ Kiosk 語音助手 ════════════ -->
+    <!-- 提示泡泡（無互動） -->
+    <div class="ai-tip" id="aiTip" hidden>
+      <span class="tip-zh"></span>
+      <span class="tip-en"></span>
+    </div>
+
+    <!-- 觸發按鈕（左下角，僅點擊／不需 hover） -->
+    <button class="ai-trigger" id="aiTrigger" aria-label="侍茶 AI 語音">
+      <svg class="mic-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="9" y="2" width="6" height="12" rx="3"/>
+        <path d="M5 10v2a7 7 0 0 0 14 0v-2"/>
+        <path d="M12 19v3"/>
+      </svg>
+      <span class="lbl text-zh">侍 茶</span>
+      <span class="lbl text-en">Ask</span>
+    </button>
+
+    <!-- 全螢幕語音覆蓋層 -->
+    <div class="ai-overlay" id="aiOverlay">
+      <div class="ai-stage" id="aiStage" data-scene="listening">
+        <button class="close" id="aiOvClose" aria-label="關閉">×</button>
+
+        <!-- 聆聽中 -->
+        <div class="scene scene-listen">
+          <div class="mic-orb">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="9" y="2" width="6" height="12" rx="3"/>
+              <path d="M5 10v2a7 7 0 0 0 14 0v-2"/>
+              <path d="M12 19v3"/>
+            </svg>
+          </div>
+          <div class="wave"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+          <div class="prompt text-zh">請 直 接 說 話</div>
+          <div class="prompt text-en">Just speak</div>
+          <div class="hint text-zh">例：「推 薦 我 一 杯 清 爽 的 茶」</div>
+          <div class="hint text-en">e.g. "Recommend a refreshing tea"</div>
+        </div>
+
+        <!-- 思考中 -->
+        <div class="scene scene-think">
+          <div class="seal">侍</div>
+          <div class="text text-zh">侍 茶 為 您 細 思 中…</div>
+          <div class="text text-en">Sommelier is reflecting…</div>
+        </div>
+
+        <!-- 回答 -->
+        <div class="scene scene-answer">
+          <div class="heard text-zh" id="aiHeardZh"></div>
+          <div class="heard text-en" id="aiHeardEn"></div>
+          <div class="ans-grid">
+            <div class="ans-image" id="aiAnsImage"></div>
+            <div class="ans-info">
+              <div class="ans-name-zh" id="aiAnsNameZh"></div>
+              <div class="ans-name-en" id="aiAnsNameEn"></div>
+              <div class="ans-desc text-zh" id="aiAnsDescZh"></div>
+              <div class="ans-desc text-en" id="aiAnsDescEn"></div>
+              <div class="ans-tags" id="aiAnsTags"></div>
+            </div>
+          </div>
+          <div class="ans-actions">
+            <button id="aiAskAgain"><span class="ic">🎙</span><span class="text-zh">再 問 一 次</span><span class="text-en">Ask again</span></button>
+            <button class="primary" id="aiSeeMenu"><span class="text-zh">前 往 點 選</span><span class="text-en">View on menu</span><span class="ic">→</span></button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /#stage -->
+</div><!-- /#stage-wrap -->
+
+
+<!-- ════════════ Tweaks ════════════ -->
+<div id="tweaks">
+  <div class="tweaks-title">
+    Tweaks
+    <span class="tweaks-toggle" id="tToggle">－</span>
+  </div>
+  <div class="tweak-row">
+    <label>頁 面</label>
+    <div class="seg" id="pageSeg">
+      <button data-p="welcome" class="on">迎</button>
+      <button data-p="path">徑</button>
+      <button data-p="profile">問</button>
+      <button data-p="recommend">薦</button>
+      <button data-p="detail">品</button>
+      <button data-p="menu">單</button>
+      <button data-p="cart">籃</button>
+      <button data-p="done">成</button>
+    </div>
+  </div>
+  <div class="tweak-row">
+    <label>語 言</label>
+    <div class="seg" id="langSeg">
+      <button data-l="zh" class="on">中 文</button>
+      <button data-l="en">EN</button>
+    </div>
+  </div>
+  <div class="tweak-row">
+    <label>主 題</label>
+    <div class="seg" id="themeSeg">
+      <button data-t="day" class="on">日</button>
+      <button data-t="night">夜</button>
+    </div>
+  </div>
+  <div class="tweak-row">
+    <label>動 畫</label>
+    <div class="seg" id="motionSeg">
+      <button data-m="on" class="on">流</button>
+      <button data-m="off">止</button>
+    </div>
+  </div>
+  <div class="tweak-foot">蟬 ・ 吃 ・ 茶 ・ Z E N</div>
+</div>
+
+
+<script>
+  /* ───────────────────────────────────────────────
+     1. Stage 等比 scale
+     ─────────────────────────────────────────────── */
+  const stage = document.getElementById('stage');
+  function fitStage(){
+    const W = window.innerWidth, H = window.innerHeight;
+    const s = Math.min(W/1920, H/1080);
+    stage.style.transform = `scale(${s})`;
+  }
+  window.addEventListener('resize', fitStage);
+  fitStage();
+
+  /* ───────────────────────────────────────────────
+     2. 頁面切換
+     ─────────────────────────────────────────────── */
+  const PAGES = ['welcome','path','profile','recommend','detail','menu','cart','done'];
+  function showPage(name){
+    document.querySelectorAll('.page').forEach(p =>
+      p.classList.toggle('active', p.dataset.page === name));
+    // 重新觸發 enso 描繪
+    document.querySelectorAll('.page.active .enso path').forEach(path => {
+      path.style.animation = 'none';
+      void path.offsetWidth;
+      path.style.animation = '';
+    });
+    // 同步 tweaks 頁面按鈕
+    document.querySelectorAll('#pageSeg button').forEach(b =>
+      b.classList.toggle('on', b.dataset.p === name));
+  }
+
+  // 透過 data-go 屬性綁定跳頁
+  document.querySelectorAll('[data-go]').forEach(el => {
+    el.addEventListener('click', e => {
+      e.stopPropagation();
+      const target = el.dataset.go;
+      // 特殊：profile → recommend 帶思考過渡
+      if (el.classList.contains('next-btn') && currentStep === 3){
+        runThinkingThenGo('recommend');
+        return;
+      }
+      // 進入 detail 前先載入指定的茶
+      if (target === 'detail' && el.dataset.tea){
+        renderDetail(el.dataset.tea);
+      }
+      showPage(target);
+      window.scrollTo(0, 0);
+    });
+  });
+
+  // Tweaks 頁面切換
+  document.querySelectorAll('#pageSeg button').forEach(b => {
+    b.addEventListener('click', () => showPage(b.dataset.p));
+  });
+
+  /* ───────────────────────────────────────────────
+     3. 語言切換（中／EN）
+     ─────────────────────────────────────────────── */
+  function setLang(l){
+    document.body.dataset.lang = l;
+    document.querySelectorAll('.lang-toggle button, #langSeg button').forEach(b => {
+      b.classList.toggle('on', b.dataset.l === l);
+    });
+    // CSS now handles all show/hide based on body[data-lang] — no manual toggling needed.
+  }
+  document.querySelectorAll('.lang-toggle button, #langSeg button').forEach(b => {
+    b.addEventListener('click', e => {
+      e.stopPropagation();
+      setLang(b.dataset.l);
+    });
+  });
+
+  /* ───────────────────────────────────────────────
+     4. 主題切換 + 動畫
+     ─────────────────────────────────────────────── */
+  document.querySelectorAll('#themeSeg button').forEach(b => {
+    b.addEventListener('click', () => {
+      document.querySelectorAll('#themeSeg button').forEach(x => x.classList.remove('on'));
+      b.classList.add('on');
+      document.body.dataset.theme = b.dataset.t;
+    });
+  });
+  document.querySelectorAll('#motionSeg button').forEach(b => {
+    b.addEventListener('click', () => {
+      document.querySelectorAll('#motionSeg button').forEach(x => x.classList.remove('on'));
+      b.classList.add('on');
+      const off = b.dataset.m === 'off';
+      document.querySelectorAll('.enso').forEach(e => e.classList.toggle('breath', !off));
+      document.querySelectorAll('.dust span').forEach(e => e.style.animation = off ? 'none' : '');
+    });
+  });
+
+  /* ───────────────────────────────────────────────
+     5. Profile 三步驟問答
+     ─────────────────────────────────────────────── */
+  let currentStep = 1;
+  const stepNumZh = ['','一','二','三'];
+
+  function showStep(n){
+    currentStep = n;
+    document.querySelectorAll('.profile-q').forEach(el =>
+      el.style.display = (Number(el.dataset.q) === n) ? '' : 'none');
+    document.querySelectorAll('[data-q-chips]').forEach(el =>
+      el.style.display = (Number(el.dataset.qChips) === n) ? '' : 'none');
+    document.querySelectorAll('.progress-pills .pill').forEach((p,i) => {
+      const idx = i + 1;
+      p.classList.toggle('on', idx === n);
+      p.classList.toggle('done', idx < n);
+    });
+    document.getElementById('stepNumZh').textContent = stepNumZh[n];
+    document.getElementById('stepNumEn').textContent = String(n);
+    // 上/下一步狀態
+    const prev = document.getElementById('profPrev');
+    const next = document.getElementById('profNext');
+    prev.style.visibility = (n === 1) ? 'hidden' : 'visible';
+    next.querySelector('.text-zh').textContent = (n === 3) ? '看 我 的 推 薦' : '下 一 問';
+    next.querySelector('.text-en').textContent = (n === 3) ? 'See My Picks' : 'Next';
+    // 重新計算 next 是否可按
+    refreshNext();
+  }
+
+  function refreshNext(){
+    const grid = document.querySelector(`[data-q-chips="${currentStep}"]`);
+    const any = grid && grid.querySelector('.chip.on');
+    document.getElementById('profNext').disabled = !any;
+  }
+
+  // chips 點擊
+  document.querySelectorAll('.chips-grid').forEach(grid => {
+    const single = grid.classList.contains('col3'); // step 2 為單選
+    grid.querySelectorAll('.chip').forEach(c => {
+      c.addEventListener('click', () => {
+        if (single){
+          grid.querySelectorAll('.chip').forEach(x => x.classList.remove('on'));
+          c.classList.add('on');
+        } else {
+          c.classList.toggle('on');
+        }
+        refreshNext();
+      });
+    });
+  });
+
+  document.getElementById('profPrev').addEventListener('click', () => {
+    if (currentStep > 1) showStep(currentStep - 1);
+  });
+  document.getElementById('profNext').addEventListener('click', () => {
+    if (currentStep < 3){
+      showStep(currentStep + 1);
+    } else {
+      runThinkingThenGo('recommend');
+    }
+  });
+
+  function runThinkingThenGo(target){
+    const ov = document.getElementById('thinkOverlay');
+    ov.classList.add('show');
+    setTimeout(() => {
+      ov.classList.remove('show');
+      showPage(target);
+      // reset profile after navigating away
+      setTimeout(() => showStep(1), 800);
+    }, 1800);
+  }
+
+  // 進入 profile 時重置
+  function resetProfileOnEnter(){
+    const obs = new MutationObserver(() => {
+      const p = document.querySelector('.page-profile');
+      if (p && p.classList.contains('active')){
+        // do nothing — keep state for now
+      }
+    });
+    obs.observe(document.querySelector('.page-profile'), {attributes:true,attributeFilter:['class']});
+  }
+  resetProfileOnEnter();
+
+  /* ───────────────────────────────────────────────
+     6. 客製化按鈕（detail 頁）
+     ─────────────────────────────────────────────── */
+  document.querySelectorAll('.custom-group .opts').forEach(group => {
+    group.addEventListener('click', e => {
+      const btn = e.target.closest('button');
+      if (!btn) return;
+      group.querySelectorAll('button').forEach(b => b.classList.remove('on'));
+      btn.classList.add('on');
+    });
+  });
+  // 取/內用切換
+  document.querySelectorAll('.pickup-mode').forEach(group => {
+    group.addEventListener('click', e => {
+      const btn = e.target.closest('button');
+      if (!btn) return;
+      group.querySelectorAll('button').forEach(b => b.classList.remove('on'));
+      btn.classList.add('on');
+    });
+  });
+  // menu tabs
+  document.querySelectorAll('.menu-tabs').forEach(group => {
+    group.addEventListener('click', e => {
+      const btn = e.target.closest('button');
+      if (!btn) return;
+      group.querySelectorAll('button').forEach(b => b.classList.remove('on'));
+      btn.classList.add('on');
+    });
+  });
+
+  /* ───────────────────────────────────────────────
+     7. Tweaks 收起
+     ─────────────────────────────────────────────── */
+  const tw = document.getElementById('tweaks');
+  document.getElementById('tToggle').addEventListener('click', () => {
+    tw.classList.toggle('collapsed');
+    document.getElementById('tToggle').textContent =
+      tw.classList.contains('collapsed') ? '＋' : '－';
+  });
+
+  /* ───────────────────────────────────────────────
+     8. AI 侍茶 — 茶品資料 + 規則引擎
+     ─────────────────────────────────────────────── */
+  const TEAS = {
+    'dongding-milk': {
+      nameZh: '凍 頂 烏 龍 ・ 鮮 奶 茶',
+      nameEn: 'Dongding Oolong Milk Tea',
+      pinyin: 'dòng dǐng wū lóng nǎi chá',
+      origin:   { zh:'南 投 鹿 谷', en:'Lugu, Nantou' },
+      roast:    { zh:'中 焙', en:'Medium' },
+      caffeine: { zh:'中 等', en:'Medium' },
+      price: 95,
+      cupColor: ['#A87E50','#6B4423'],
+      decor: 'pearl',
+      vertical: '凍 頂 一 味 ・ 焙 火 沉 香',
+      stamp: '凍 頂 ・ 鹿 谷',
+      flavor: { body:88, roast:75, aroma:78, sweet:55, bitter:30, fresh:42 },
+      sommelier: {
+        zh:'凍 頂 烏 龍 中 焙 沉 香 ， 與 鮮 奶 最 為 相 得 。 半 糖 微 冰 加 珍 珠 為 經 典 配 法 。',
+        en:'Dongding\'s medium roast pairs beautifully with milk. Half-sugar, light-ice with pearls is the classic configuration.'
+      },
+      notes: {
+        zh:'入 口 焙 火 香 氣 飽 滿 ， 中 段 鮮 奶 化 開 後 ， 烏 龍 的 蘭 花 尾 韻 緩 緩 浮 出 。 茶 體 沉 穩 ， 餘 韻 帶 一 絲 桂 圓 蜜 糖 。',
+        en:'Toasted warmth on entry; mid-palate, milk softens it into a creamy body, with an orchid-and-longan finish that lingers.'
+      },
+      optimal: { size:'L', sugar:'half', ice:'less', topping:'pearl' },
+      rules: [
+        { trigger:{ice:'normal'}, level:'tip',
+          msg:{ zh:'冰 量 較 多 會 讓 奶 香 較 不 易 化 開 ， 建 議 微 冰 即 可 。',
+                en:'Full ice can mute the creaminess — try light ice for best results.' },
+          apply:{ ice:'less' } },
+        { trigger:{sugar:'none'}, level:'tip',
+          msg:{ zh:'無 糖 能 凸 顯 焙 火 韻 ， 但 口 感 較 不 圓 潤 ， 建 議 至 少 微 糖 。',
+                en:'Sugar-free amplifies the roasted character at the cost of body. We suggest at least light sugar.' },
+          apply:{ sugar:'tiny' } },
+        { trigger:{topping:'none'}, level:'info',
+          msg:{ zh:'純 飲 也 很 美 味 ， 但 此 茶 與 黑 糖 珍 珠 是 經 典 搭 配 。',
+                en:'Plain is lovely too — but the brown-sugar pearls are this tea\'s classic match.' } }
+      ],
+      forbidden: [],
+      pairing: [
+        { ico:'時', zh:'下 午 茶', en:'Afternoon' },
+        { ico:'食', zh:'桂 花 糕', en:'Osmanthus Cake' },
+        { ico:'伴', zh:'三 五 好 友', en:'With Friends' }
+      ]
+    },
+
+    'honey-green': {
+      nameZh: '蜂 蜜 綠 茶',
+      nameEn: 'Honey Green Tea',
+      pinyin: 'fēng mì lǜ chá',
+      origin:   { zh:'南 投 杉 林 溪', en:'Shanlinxi, Nantou' },
+      roast:    { zh:'輕 焙', en:'Light' },
+      caffeine: { zh:'中 低', en:'Medium-Low' },
+      price: 80,
+      cupColor: ['#C0C880','#7A8C40'],
+      decor: 'honey',
+      vertical: '蜜 採 山 林 ・ 茶 蘊 清 香',
+      stamp: '杉 林 ・ 蜂 蜜',
+      flavor: { body:48, roast:15, aroma:82, sweet:85, bitter:30, fresh:80 },
+      sommelier: {
+        zh:'此 茶 以 蜂 蜜 為 靈 魂 ， 茶 為 襯 底 。 蜜 量 決 定 圓 潤 度 ， 建 議 至 少 半 蜜 以 留 蜜 香 。',
+        en:'Honey is the soul of this cup, tea is the canvas. We recommend at least "half" sweetness to preserve the signature honey character.'
+      },
+      notes: {
+        zh:'清 香 杉 林 溪 綠 茶 配 上 龍 眼 花 蜜 ， 蜜 香 為 主 、 茶 味 為 輔 ， 整 體 圓 潤 甘 美 。 是 一 杯 適 合 夏 日 的 溫 柔 茶 飲 。',
+        en:'Light Shanlinxi green tea with longan honey — the honey leads, the tea supports. Round, sweet, and gentle, perfect for warm days.'
+      },
+      optimal: { size:'L', sugar:'half', ice:'normal', topping:'none' },
+      rules: [
+        { trigger:{sugar:'tiny'}, level:'warn',
+          msg:{ zh:'微 糖 會 讓 蜂 蜜 風 味 打 折 ， 建 議 至 少 半 蜜 才 能 喝 出 蜜 香 。',
+                en:'A "light" sweetness mutes the honey character. We suggest at least "half" honey to bring out the signature flavor.' },
+          apply:{ sugar:'half' } },
+        { trigger:{ice:'hot'}, level:'tip',
+          msg:{ zh:'熱 飲 會 稀 釋 蜂 蜜 的 清 新 感 ， 此 茶 較 適 合 冰 飲 。',
+                en:'Honey green tea shines cold — heat tends to flatten the floral honey notes.' } },
+        { trigger:{topping:'pearl'}, level:'tip',
+          msg:{ zh:'珍 珠 的 黑 糖 香 與 蜂 蜜 風 味 會 互 相 干 擾 ， 純 飲 較 能 凸 顯 蜜 香 。',
+                en:'Brown-sugar pearls compete with the honey notes — plain tends to be more harmonious.' } }
+      ],
+      forbidden: [
+        { type:'sugar', value:'none',
+          msg:{ zh:'蜂 蜜 是 此 茶 的 靈 魂 ， 無 法 調 為 無 糖 。 至 少 需 半 蜜 才 能 留 住 風 味 。',
+                en:'Honey is essential to this tea — sugar-free is not available. At least half-honey is required to preserve the flavor.' } }
+      ],
+      pairing: [
+        { ico:'時', zh:'夏 日 午 後', en:'Summer Afternoon' },
+        { ico:'食', zh:'手 工 餅 乾', en:'Shortbread' },
+        { ico:'伴', zh:'獨 自 閱 讀', en:'Solo Reading' }
+      ]
+    },
+
+    'matcha-latte': {
+      nameZh: '朝 露 抹 茶 拿 鐵',
+      nameEn: 'Morning Dew Matcha Latte',
+      pinyin: 'zhāo lù mǒ chá ná tiě',
+      origin:   { zh:'京 都 宇 治', en:'Uji, Kyoto' },
+      roast:    { zh:'蒸 青', en:'Steamed' },
+      caffeine: { zh:'中 等', en:'Medium' },
+      price: 95,
+      cupColor: ['#9CAF7B','#5C7240'],
+      decor: 'foam',
+      vertical: '宇 治 一 番 ・ 抹 茶 朝 露',
+      stamp: '宇 治 ・ 一 番',
+      flavor: { body:72, roast:18, aroma:88, sweet:52, bitter:62, fresh:88 },
+      sommelier: {
+        zh:'宇 治 一 番 抹 茶 細 研 ， 風 味 細 緻 而 微 苦 。 加 料 反 而 會 掩 蓋 抹 茶 的 鮮 草 香 ， 建 議 純 飲 為 上 。',
+        en:'Stone-ground first-harvest Uji matcha — bold yet delicate, slightly bitter. Toppings tend to overpower its grassy nuance — best served plain.'
+      },
+      notes: {
+        zh:'京 都 宇 治 一 番 抹 茶 ， 帶 微 苦 與 鮮 草 香 ， 與 鮮 奶 化 開 後 多 一 分 圓 潤 ， 適 合 想 嘗 試 不 同 茶 體 的 您 。',
+        en:'First-harvest Uji matcha with a vegetal nuance and gentle bitterness — milk softens it into a creamy, focused cup.'
+      },
+      optimal: { size:'M', sugar:'tiny', ice:'less', topping:'none' },
+      rules: [
+        { trigger:{sugar:'full'}, level:'warn',
+          msg:{ zh:'全 糖 會 掩 蓋 抹 茶 的 鮮 草 香 ， 建 議 微 糖 即 可 ， 才 能 嘗 到 抹 茶 細 緻 風 味 。',
+                en:'Full sugar masks matcha\'s vegetal nuance — light sugar is plenty to enjoy its delicate character.' },
+          apply:{ sugar:'tiny' } },
+        { trigger:{topping:'pearl'}, level:'tip',
+          msg:{ zh:'珍 珠 的 黑 糖 香 會 與 抹 茶 細 緻 風 味 違 和 ， 純 飲 較 為 雅 致 。',
+                en:'The pearls\' brown sugar can clash with matcha\'s ceremonial profile — plain feels more refined.' } },
+        { trigger:{ice:'normal'}, level:'tip',
+          msg:{ zh:'抹 茶 香 氣 易 因 過 冰 而 收 斂 ， 微 冰 較 能 留 香 。',
+                en:'Matcha aromatics shrink with full ice — try light ice to keep them open.' },
+          apply:{ ice:'less' } }
+      ],
+      forbidden: [],
+      pairing: [
+        { ico:'時', zh:'清 晨 開 工', en:'Early Morning' },
+        { ico:'食', zh:'紅 豆 餡 點', en:'Red Bean Sweets' },
+        { ico:'伴', zh:'靜 心 工 作', en:'Focused Work' }
+      ]
+    },
+
+    'honey-oolong': {
+      nameZh: '蜜 香 烏 龍',
+      nameEn: 'Honey Oolong',
+      pinyin: 'mì xiāng wū lóng',
+      origin:   { zh:'台 東 鹿 野', en:'Luye, Taitung' },
+      roast:    { zh:'輕 焙', en:'Light' },
+      caffeine: { zh:'中 等', en:'Medium' },
+      price: 85,
+      cupColor: ['#D4A267','#9B6A2E'],
+      decor: 'leaves',
+      vertical: '蜜 香 蟬 舞 ・ 蘭 韻 悠 長',
+      stamp: '鹿 野 ・ 蜜 香',
+      flavor: { body:65, roast:32, aroma:88, sweet:72, bitter:28, fresh:60 },
+      sommelier: {
+        zh:'蜜 香 烏 龍 因 茶 樹 受 小 綠 葉 蟬 啃 食 而 自 然 散 發 蜜 韻 ， 純 飲 即 是 上 品 ， 不 建 議 加 料 。',
+        en:'Honey oolong gets its natural sweetness from leafhopper-bitten leaves. Best served plain — toppings would only mask its delicate honey character.'
+      },
+      notes: {
+        zh:'入 口 即 有 自 然 蜜 香 ， 中 段 浮 出 蘭 花 尾 韻 ， 茶 湯 透 亮 ， 入 喉 回 甘 持 久 。 是 台 灣 最 具 代 表 性 的 烏 龍 之 一 。',
+        en:'Natural honey aromatics on entry, an orchid finish mid-palate, and a long mellow aftertaste — one of Taiwan\'s most celebrated oolongs.'
+      },
+      optimal: { size:'L', sugar:'tiny', ice:'less', topping:'none' },
+      rules: [
+        { trigger:{topping:'pearl'}, level:'warn',
+          msg:{ zh:'此 茶 蜜 香 細 緻 ， 加 珍 珠 反 而 會 蓋 過 ， 建 議 純 飲 嘗 其 本 韻 。',
+                en:'Pearls overpower this tea\'s subtle honey notes — we recommend serving it plain.' },
+          apply:{ topping:'none' } },
+        { trigger:{sugar:'full'}, level:'tip',
+          msg:{ zh:'此 茶 自 帶 蜜 韻 ， 全 糖 會 顯 膩 ， 建 議 微 糖 或 無 糖 。',
+                en:'This tea has its own natural sweetness — full sugar feels cloying. Try light or none.' },
+          apply:{ sugar:'tiny' } }
+      ],
+      forbidden: [],
+      pairing: [
+        { ico:'時', zh:'下 午 茶', en:'Afternoon' },
+        { ico:'食', zh:'蜂 蜜 蛋 糕', en:'Honey Castella' },
+        { ico:'伴', zh:'與 自 己', en:'Solo' }
+      ]
+    },
+
+    'sun-moon-black': {
+      nameZh:'日 月 潭 紅 茶', nameEn:'Sun Moon Lake Black', pinyin:'rì yuè tán hóng chá',
+      origin:{zh:'南 投 魚 池',en:'Yuchi, Nantou'}, roast:{zh:'全 發 酵',en:'Fully Oxidized'},
+      caffeine:{zh:'高',en:'High'}, price:75,
+      cupColor:['#C44A3A','#7A2018'], decor:'leaves',
+      vertical:'潭 心 紅 韻 ・ 肉 桂 餘 香', stamp:'魚 池 ・ 紅 玉',
+      flavor:{body:78, roast:62, aroma:82, sweet:55, bitter:55, fresh:35},
+      sommelier:{ zh:'紅 玉 紅 茶 帶 天 然 肉 桂 與 薄 荷 香 ， 純 飲 即 為 上 品 ， 加 奶 也 不 失 風 味 。',
+                  en:'Ruby black tea with natural cinnamon and mint notes — exceptional plain or with milk.'},
+      notes:{ zh:'入 口 厚 實 ， 中 段 浮 出 肉 桂 與 薄 荷 香 ， 尾 韻 帶 一 絲 蜜 糖 。',
+              en:'Full body with cinnamon and mint mid-palate, a honey-like finish.'},
+      optimal:{size:'L',sugar:'tiny',ice:'less',topping:'none'},
+      rules:[
+        { trigger:{sugar:'full'}, level:'tip',
+          msg:{ zh:'紅 玉 風 味 飽 滿 ， 全 糖 會 蓋 過 肉 桂 香 ， 建 議 微 糖 或 半 糖 。',
+                en:'Full sugar tends to bury the cinnamon notes — light or half is ideal.'},
+          apply:{sugar:'tiny'} }
+      ],
+      forbidden:[],
+      pairing:[ {ico:'時',zh:'清 晨',en:'Early Morning'}, {ico:'食',zh:'肉 桂 捲',en:'Cinnamon Roll'}, {ico:'伴',zh:'閱 讀',en:'Reading'} ]
+    },
+
+    'classic-milk': {
+      nameZh:'經 典 鮮 奶 茶', nameEn:'Classic Milk Tea', pinyin:'jīng diǎn xiān nǎi chá',
+      origin:{zh:'阿 薩 姆',en:'Assam-Style Blend'}, roast:{zh:'全 發 酵',en:'Full'},
+      caffeine:{zh:'中 等',en:'Medium'}, price:70,
+      cupColor:['#D4B488','#9B7A50'], decor:'pearl',
+      vertical:'經 典 一 味 ・ 茶 奶 相 融', stamp:'蟬 ・ 鮮 奶',
+      flavor:{body:72, roast:50, aroma:60, sweet:65, bitter:35, fresh:45},
+      sommelier:{ zh:'經 典 鮮 奶 茶 ， 茶 香 與 奶 香 平 衡 。 半 糖 加 珍 珠 為 大 眾 最 愛 配 法 。',
+                  en:'A balanced milk tea — half sugar with pearls is the crowd favorite.'},
+      notes:{ zh:'濃 厚 紅 茶 與 鮮 奶 完 美 平 衡 ， 入 口 圓 潤 ， 餘 韻 帶 微 微 茶 香 。',
+              en:'Robust black tea balanced with fresh milk — round mouthfeel and a gentle finish.'},
+      optimal:{size:'L',sugar:'half',ice:'less',topping:'pearl'},
+      rules:[
+        { trigger:{sugar:'none'}, level:'tip',
+          msg:{ zh:'無 糖 鮮 奶 茶 會 顯 苦 ， 建 議 至 少 微 糖 。',
+                en:'Unsweetened milk tea tends to taste bitter — at least light sugar is recommended.'},
+          apply:{sugar:'tiny'} }
+      ],
+      forbidden:[],
+      pairing:[ {ico:'時',zh:'下 午',en:'Afternoon'}, {ico:'食',zh:'蛋 糕',en:'Cake'}, {ico:'伴',zh:'好 友',en:'Friends'} ]
+    },
+
+    'oriental-beauty': {
+      nameZh:'東 方 美 人', nameEn:'Oriental Beauty', pinyin:'dōng fāng měi rén',
+      origin:{zh:'新 竹 北 埔',en:'Beipu, Hsinchu'}, roast:{zh:'重 發 酵',en:'Heavy Oxidation'},
+      caffeine:{zh:'低',en:'Low'}, price:110,
+      cupColor:['#E0B070','#A87030'], decor:'leaves',
+      vertical:'白 毫 蟬 韻 ・ 蜜 香 自 然', stamp:'北 埔 ・ 白 毫',
+      flavor:{body:60, roast:45, aroma:92, sweet:78, bitter:22, fresh:68},
+      sommelier:{ zh:'東 方 美 人 為 高 級 蜜 香 茶 ， 純 飲 為 上 ， 不 建 議 加 奶 加 料 。',
+                  en:'A premium honey-aroma tea — best served plain, not with milk or toppings.'},
+      notes:{ zh:'天 然 蜜 香 與 熟 果 韻 ， 茶 湯 琥 珀 透 亮 ， 是 茶 中 貴 族 ， 慢 飲 為 宜 。',
+              en:'Natural honey and ripe-fruit notes — amber, luminous, a tea aristocrat best sipped slowly.'},
+      optimal:{size:'M',sugar:'none',ice:'warm',topping:'none'},
+      rules:[
+        { trigger:{topping:'pearl'}, level:'warn',
+          msg:{ zh:'此 為 高 級 蜜 香 茶 ， 加 珍 珠 將 完 全 蓋 過 風 味 ， 強 烈 建 議 純 飲 。',
+                en:'This is a premium honey tea — pearls would entirely mask its character. Plain is strongly recommended.'},
+          apply:{topping:'none'} },
+        { trigger:{topping:'coconut'}, level:'tip',
+          msg:{ zh:'椰 果 雖 不 至 衝 突 ， 仍 建 議 純 飲 為 佳 。',
+                en:'Coconut jelly isn\'t a dealbreaker, but plain is still preferred.'} }
+      ],
+      forbidden:[],
+      pairing:[ {ico:'時',zh:'貴 客 來 訪',en:'Special Guest'}, {ico:'食',zh:'淡 雅 點 心',en:'Light Sweets'}, {ico:'伴',zh:'品 茶 雅 集',en:'Tea Salon'} ]
+    },
+
+    'osmanthus-oolong': {
+      nameZh:'桂 花 烏 龍', nameEn:'Osmanthus Oolong', pinyin:'guì huā wū lóng',
+      origin:{zh:'南 投 名 間',en:'Mingjian, Nantou'}, roast:{zh:'輕 焙',en:'Light'},
+      caffeine:{zh:'中 等',en:'Medium'}, price:85,
+      cupColor:['#D8B070','#A88040'], decor:'honey',
+      vertical:'桂 影 花 香 ・ 茶 韻 清 揚', stamp:'名 間 ・ 桂 花',
+      flavor:{body:55, roast:30, aroma:90, sweet:62, bitter:28, fresh:72},
+      sommelier:{ zh:'桂 花 與 烏 龍 細 緻 結 合 ， 風 味 清 雅 ， 建 議 微 糖 或 純 飲 。',
+                  en:'Osmanthus delicately married with oolong — light sugar or plain best preserves the floral notes.'},
+      notes:{ zh:'桂 花 香 撲 鼻 ， 烏 龍 茶 體 平 順 ， 入 喉 帶 微 蜜 ， 是 一 杯 適 合 春 秋 的 茶 。',
+              en:'Bright osmanthus aromatics over a smooth oolong body, with a faint honey finish — perfect for spring and autumn.'},
+      optimal:{size:'L',sugar:'tiny',ice:'less',topping:'none'},
+      rules:[
+        { trigger:{sugar:'full'}, level:'tip',
+          msg:{ zh:'全 糖 會 蓋 過 桂 花 香 ， 建 議 微 糖 或 無 糖 才 能 留 住 花 韻 。',
+                en:'Full sugar overpowers the osmanthus — light or none keeps the floral notes alive.'},
+          apply:{sugar:'tiny'} }
+      ],
+      forbidden:[],
+      pairing:[ {ico:'時',zh:'秋 日',en:'Autumn Day'}, {ico:'食',zh:'桂 花 糕',en:'Osmanthus Cake'}, {ico:'伴',zh:'雅 緻 時 光',en:'Quiet Time'} ]
+    },
+
+    'genmaicha': {
+      nameZh:'玄 米 煎 茶', nameEn:'Genmaicha', pinyin:'xuán mǐ jiān chá',
+      origin:{zh:'日 本 靜 岡',en:'Shizuoka, Japan'}, roast:{zh:'蒸 青 + 炒 米',en:'Steamed + Roasted Rice'},
+      caffeine:{zh:'低',en:'Low'}, price:80,
+      cupColor:['#A8B870','#5C7240'], decor:'leaves',
+      vertical:'玄 米 煎 韻 ・ 樸 素 之 美', stamp:'靜 岡 ・ 玄 米',
+      flavor:{body:55, roast:55, aroma:75, sweet:42, bitter:38, fresh:78},
+      sommelier:{ zh:'玄 米 煎 茶 樸 素 親 切 ， 茶 香 與 米 香 並 重 ， 建 議 純 飲 不 加 料 。',
+                  en:'Honest, grounding genmaicha — toasted rice and grassy tea in equal measure. Plain, no toppings.'},
+      notes:{ zh:'蒸 青 煎 茶 與 烘 焙 玄 米 的 雙 重 香 氣 ， 茶 湯 黃 綠 清 透 ， 解 膩 提 神 。',
+              en:'Steamed sencha layered with roasted brown rice — golden-green liquor that\'s cleansing and refreshing.'},
+      optimal:{size:'M',sugar:'none',ice:'hot',topping:'none'},
+      rules:[
+        { trigger:{topping:'pearl'}, level:'warn',
+          msg:{ zh:'玄 米 煎 茶 為 日 式 純 茶 ， 不 適 合 加 珍 珠 ， 強 烈 建 議 純 飲 。',
+                en:'Genmaicha is a traditional Japanese plain tea — pearls aren\'t a fit. Plain only.'},
+          apply:{topping:'none'} },
+        { trigger:{ice:'normal'}, level:'tip',
+          msg:{ zh:'熱 飲 才 能 嘗 到 玄 米 烘 焙 的 香 氣 ， 建 議 熱 飲 。',
+                en:'The toasted-rice aromatics only open up hot — we recommend hot service.'},
+          apply:{ice:'hot'} }
+      ],
+      forbidden:[
+        { type:'sugar', value:'full',
+          msg:{ zh:'此 為 日 式 純 茶 ， 不 適 合 全 糖 飲 用 ， 建 議 無 糖 嘗 其 本 味 。',
+                en:'A traditional Japanese tea isn\'t served sweetened — try unsweetened to taste its true character.'} }
+      ],
+      pairing:[ {ico:'時',zh:'用 餐 配 茶',en:'With Meals'}, {ico:'食',zh:'壽 司 ・ 飯 糰',en:'Sushi · Onigiri'}, {ico:'伴',zh:'家 常 時 光',en:'Everyday Moments'} ]
+    }
+  };
+
+  const TEA_STUB = {
+    origin:{zh:'台 灣',en:'Taiwan'}, roast:{zh:'未 標',en:'—'},
+    caffeine:{zh:'中 等',en:'Medium'},
+    cupColor:['#A87E50','#6B4423'], decor:'leaves',
+    vertical:'一 茶 一 味', stamp:'蟬 ・ 吃 ・ 茶',
+    flavor:{body:60,roast:50,aroma:65,sweet:55,bitter:40,fresh:55},
+    sommelier:{zh:'尚 待 侍 茶 師 撰 寫 風 味 筆 記 。',en:'Sommelier note coming soon.'},
+    notes:{zh:'經 典 茶 飲 ， 風 味 平 衡 。',en:'A classic, well-balanced tea.'},
+    optimal:{size:'L',sugar:'half',ice:'less',topping:'none'},
+    rules:[], forbidden:[],
+    pairing:[ {ico:'時',zh:'隨 時',en:'Anytime'}, {ico:'食',zh:'隨 興',en:'Any'}, {ico:'伴',zh:'隨 緣',en:'Anyone'} ]
+  };
+
+  function getTea(id){
+    if (TEAS[id]) return { ...TEA_STUB, ...TEAS[id], id };
+    const card = document.querySelector(`[data-tea="${id}"]`);
+    const nameZh = card?.querySelector('.name-zh')?.textContent || '茶';
+    const nameEn = card?.querySelector('.name-en')?.textContent || 'Tea';
+    return { ...TEA_STUB, id, nameZh, nameEn, pinyin:'', price:80 };
+  }
+
+  // 風味雷達點計算（六軸：醇/焙/香/甜/苦/鮮）
+  function radarPoints(f){
+    const v = (k)=>(f[k]||0)/100;
+    const cx=100, cy=100;
+    return [
+      [cx,                  cy - 80*v('body')],
+      [cx + 67*v('roast'),  cy - 45*v('roast')],
+      [cx + 67*v('aroma'),  cy + 35*v('aroma')],
+      [cx,                  cy + 80*v('sweet')],
+      [cx - 67*v('bitter'), cy + 35*v('bitter')],
+      [cx - 67*v('fresh'),  cy - 45*v('fresh')]
+    ].map(p=>p.join(',')).join(' ');
+  }
+
+  // 杯內裝飾 SVG
+  function decorSvg(kind){
+    switch(kind){
+      case 'pearl': return `
+        <circle cx="86" cy="120" r="6" fill="#1A1208" opacity=".7"/>
+        <circle cx="100" cy="130" r="6" fill="#1A1208" opacity=".7"/>
+        <circle cx="114" cy="120" r="6" fill="#1A1208" opacity=".7"/>
+        <circle cx="92" cy="138" r="5" fill="#1A1208" opacity=".7"/>
+        <circle cx="108" cy="138" r="5" fill="#1A1208" opacity=".7"/>`;
+      case 'honey': return `
+        <path d="M86,90 Q88,80 90,90 Q92,98 90,100 Q88,102 86,100 Q84,96 86,90 Z" fill="#E0B040" opacity=".75"/>
+        <circle cx="100" cy="105" r="3.5" fill="#E0B040" opacity=".7"/>
+        <circle cx="115" cy="115" r="2.8" fill="#E0B040" opacity=".7"/>
+        <circle cx="92" cy="125" r="3.2" fill="#E0B040" opacity=".7"/>`;
+      case 'foam': return `
+        <ellipse cx="100" cy="62" rx="58" ry="9" fill="#FAF6EC" opacity=".55"/>
+        <circle cx="80" cy="58" r="5" fill="#FAF6EC" opacity=".7"/>
+        <circle cx="120" cy="58" r="6" fill="#FAF6EC" opacity=".7"/>`;
+      case 'leaves': return `
+        <path d="M88,100 Q92,90 96,100 Q92,104 88,100 Z" fill="#5C7240" opacity=".55"/>
+        <path d="M105,115 Q110,107 115,115 Q110,119 105,115 Z" fill="#5C7240" opacity=".55"/>`;
+      default: return '';
+    }
+  }
+
+  // 狀態（topping / extra 為陣列；多選）
+  let currentTea = null;
+  let currentCustom = { size:'L', sugar:'half', ice:'less', topping:['pearl'], extra:[] };
+
+  // 將 tea.optimal（舊資料：topping 為字串）轉為當前狀態
+  function loadCustomFromOptimal(opt){
+    const o = opt || {};
+    const tp = o.topping;
+    let toppingArr;
+    if (Array.isArray(tp)) toppingArr = [...tp];
+    else if (!tp || tp === 'none' || tp === '') toppingArr = [];
+    else toppingArr = [tp];
+    return {
+      size: o.size || 'L',
+      sugar: o.sugar || 'half',
+      ice: o.ice || 'less',
+      topping: toppingArr,
+      extra: Array.isArray(o.extra) ? [...o.extra] : []
+    };
+  }
+
+  // 同步狀態到所有按鈕
+  function syncCustomButtons(){
+    document.querySelectorAll('.detail-custom .custom-group').forEach(group => {
+      const type = group.dataset.optType;
+      const isMulti = group.dataset.optMulti === 'true';
+      group.querySelectorAll('button').forEach(b => {
+        const v = b.dataset.optValue;
+        if (isMulti){
+          const arr = currentCustom[type] || [];
+          b.classList.toggle('on', arr.includes(v));
+        } else {
+          b.classList.toggle('on', v === currentCustom[type]);
+        }
+      });
+    });
+  }
+
+  function renderDetail(teaId){
+    const t = getTea(teaId);
+    currentTea = t;
+    currentCustom = loadCustomFromOptimal(t.optimal);
+
+    // 翻面卡片：每次切換到詳情頁，恢復正面
+    const dl = document.getElementById('detailLeft');
+    if (dl) dl.classList.remove('flipped');
+
+    const $ = (id) => document.getElementById(id);
+    $('dName').textContent = t.nameZh;
+    $('dNameEn').textContent = t.nameEn;
+    // 拼音已移除（簡化資訊負擔）
+    $('dOrigin').innerHTML   = `<span class="text-zh">${t.origin.zh}</span><span class="text-en">${t.origin.en}</span>`;
+    $('dRoast').innerHTML    = `<span class="text-zh">${t.roast.zh}</span><span class="text-en">${t.roast.en}</span>`;
+    $('dCaffeine').innerHTML = `<span class="text-zh">${t.caffeine.zh}</span><span class="text-en">${t.caffeine.en}</span>`;
+    $('sommelierZh').textContent = t.sommelier.zh;
+    $('sommelierEn').textContent = t.sommelier.en;
+    $('dNotesZh').textContent = t.notes.zh;
+    $('dNotesEn').textContent = t.notes.en;
+    $('dPrice').innerHTML = `<small>NT$</small>${t.price}`;
+
+    // 茶杯插畫
+    $('liqDtop').setAttribute('stop-color', t.cupColor[0]);
+    $('liqDbot').setAttribute('stop-color', t.cupColor[1]);
+    $('detailCupDecor').innerHTML = decorSvg(t.decor);
+    $('detailVertical').textContent = t.vertical;
+    $('detailStampText').textContent = t.stamp;
+
+    // 風味
+    $('radarShape').setAttribute('points', radarPoints(t.flavor));
+    const FL = [
+      { k:'body',   zh:'醇 厚', en:'Body' },
+      { k:'roast',  zh:'焙 韻', en:'Roast' },
+      { k:'aroma',  zh:'香 氣', en:'Aroma' },
+      { k:'sweet',  zh:'甜 度', en:'Sweet' },
+      { k:'bitter', zh:'苦 韻', en:'Bitter' },
+      { k:'fresh',  zh:'鮮 韻', en:'Fresh' }
+    ];
+    $('flavorList').innerHTML = FL.map(f => `
+      <div class="row">
+        <span class="lbl"><span class="text-zh">${f.zh}</span><span class="text-en">${f.en}</span></span>
+        <span class="bar"><i style="width:${t.flavor[f.k]||0}%"></i></span>
+        <span class="val">${t.flavor[f.k]||0}</span>
+      </div>`).join('');
+
+    // 同款好搭
+    $('pairingBody').innerHTML = t.pairing.map(p => `
+      <div class="pair-item">
+        <div class="ico">${p.ico}</div>
+        <div class="lbl-zh text-zh">${p.zh}</div>
+        <div class="lbl-en text-en">${p.en}</div>
+      </div>`).join('');
+
+    // 客製化按鈕：套用最佳預設、清除 forbidden 標記
+    document.querySelectorAll('.detail-custom .custom-group').forEach(group => {
+      group.querySelectorAll('button').forEach(b => {
+        b.classList.remove('forbidden');
+        delete b.dataset.forbidReason;
+        delete b.dataset.forbidReasonEn;
+      });
+    });
+    syncCustomButtons();
+    // 套用 forbidden 標記
+    t.forbidden.forEach(fb => {
+      const btn = document.querySelector(
+        `.detail-custom [data-opt-type="${fb.type}"] [data-opt-value="${fb.value}"]`
+      );
+      if (btn){
+        btn.classList.add('forbidden');
+        btn.dataset.forbidReason = fb.msg.zh;
+        btn.dataset.forbidReasonEn = fb.msg.en;
+      }
+    });
+
+    updateAiHint();
+  }
+
+  // 規則匹配（topping / extra 視為陣列：trigger 為字串時走 includes，'none' 對應空陣列）
+  function ruleMatches(rule, state){
+    return Object.keys(rule.trigger).every(k => {
+      const tv = rule.trigger[k];
+      const sv = state[k];
+      if (Array.isArray(sv)){
+        if (tv === 'none' || tv === '' || tv == null) return sv.length === 0;
+        if (Array.isArray(tv)) return tv.every(x => sv.includes(x));
+        return sv.includes(tv);
+      }
+      return sv === tv;
+    });
+  }
+  function findActiveRule(){
+    if (!currentTea) return null;
+    return currentTea.rules.find(r => ruleMatches(r, currentCustom)) || null;
+  }
+
+  function showAiHint(level, msgZh, msgEn, applyPatch){
+    const h = document.getElementById('aiHint');
+    h.classList.remove('empty');
+    h.dataset.level = level;
+    h.querySelector('.msg-zh').textContent = msgZh;
+    h.querySelector('.msg-en').textContent = msgEn;
+    const lblZh = level==='warn' ? '建 議 修 改' : (level==='info' ? '小 知 識' : '溫 馨 提 醒');
+    const lblEn = level==='warn' ? 'Suggestion' : (level==='info' ? 'Did You Know' : 'Tip');
+    h.querySelector('.lvl-badge').innerHTML =
+      `<span class="text-zh">${lblZh}</span><span class="en text-en">${lblEn}</span>`;
+    const btn = document.getElementById('applyHintBtn');
+    if (applyPatch){
+      btn.style.display = '';
+      btn.dataset.patch = JSON.stringify(applyPatch);
+    } else {
+      btn.style.display = 'none';
+    }
+    // 動畫重播
+    h.style.animation = 'none';
+    void h.offsetWidth;
+    h.style.animation = '';
+  }
+  function hideAiHint(){
+    document.getElementById('aiHint').classList.add('empty');
+  }
+  function updateAiHint(){
+    const r = findActiveRule();
+    if (r){
+      showAiHint(r.level, r.msg.zh, r.msg.en, r.apply);
+    } else {
+      hideAiHint();
+    }
+  }
+
+  // 客製化按鈕點擊（單選 / 多選混合）
+  document.querySelectorAll('.detail-custom').forEach(root => {
+    root.addEventListener('click', e => {
+      const btn = e.target.closest('button');
+      if (!btn) return;
+      // 禁忌選項：顯示原因不改變狀態
+      if (btn.classList.contains('forbidden')){
+        showAiHint('warn', btn.dataset.forbidReason, btn.dataset.forbidReasonEn);
+        return;
+      }
+      const group = btn.closest('.custom-group');
+      const type = group.dataset.optType;
+      const value = btn.dataset.optValue;
+      if (!type || !value) return;
+      const isMulti = group.dataset.optMulti === 'true';
+      if (isMulti){
+        if (!Array.isArray(currentCustom[type])) currentCustom[type] = [];
+        const arr = currentCustom[type];
+        const i = arr.indexOf(value);
+        if (i >= 0){ arr.splice(i, 1); btn.classList.remove('on'); }
+        else        { arr.push(value); btn.classList.add('on'); }
+      } else {
+        // 單選：再點一次同一個 → 取消選取
+        if (btn.classList.contains('on')){
+          btn.classList.remove('on');
+          currentCustom[type] = '';
+        } else {
+          group.querySelectorAll('button').forEach(b => b.classList.remove('on'));
+          btn.classList.add('on');
+          currentCustom[type] = value;
+        }
+      }
+      updateAiHint();
+    });
+  });
+
+  // 採納侍茶建議
+  document.getElementById('applyHintBtn').addEventListener('click', e => {
+    e.stopPropagation();
+    const patch = JSON.parse(document.getElementById('applyHintBtn').dataset.patch || '{}');
+    Object.keys(patch).forEach(k => {
+      const v = patch[k];
+      // topping/extra：字串 'none' → 空陣列；字串 → 取代為單元素陣列
+      if (k === 'topping' || k === 'extra'){
+        if (Array.isArray(v)) currentCustom[k] = [...v];
+        else if (!v || v === 'none' || v === '') currentCustom[k] = [];
+        else currentCustom[k] = [v];
+      } else {
+        currentCustom[k] = v;
+      }
+    });
+    syncCustomButtons();
+    updateAiHint();
+  });
+
+  // 侍茶為我配最佳組合
+  document.getElementById('sommelierBest').addEventListener('click', e => {
+    e.stopPropagation();
+    if (!currentTea) return;
+    currentCustom = loadCustomFromOptimal(currentTea.optimal);
+    syncCustomButtons();
+    showAiHint('tip',
+      '已 套 用 侍 茶 推 薦 的 最 佳 組 合 ， 請 您 細 細 品 嘗 。',
+      'Sommelier\'s ideal preset applied — sip slowly and enjoy.');
+  });
+
+  // 茶卡片翻面切換（細品此茶）
+  (function initFlipCard(){
+    const dl = document.getElementById('detailLeft');
+    const tg = document.getElementById('flipToggle');
+    if (!dl || !tg) return;
+    tg.addEventListener('click', () => dl.classList.toggle('flipped'));
+  })();
+
+  // 初始化
+  showStep(1);
+  renderDetail('dongding-milk');
+
+  /* ───────────────────────────────────────────────
+     侍茶 AI ・ Kiosk 語音助手 (Voice-first, no chat history)
+     流程：tap → listening (mock 2.4s) → thinking (1s) → answer card
+     ─────────────────────────────────────────────── */
+  (function initVoiceAi(){
+    const trigger = document.getElementById('aiTrigger');
+    const overlay = document.getElementById('aiOverlay');
+    const stage   = document.getElementById('aiStage');
+    const closeBt = document.getElementById('aiOvClose');
+    const tip     = document.getElementById('aiTip');
+    if(!trigger || !overlay) return;
+
+    /* ── 頁面提示（無互動，純視覺） ── */
+    const tips = {
+      welcome:  ['想喝什麼？輕觸侍茶，直接說話。',     'Curious? Tap the sommelier and just speak.'],
+      profile:  ['不想填問卷？告訴侍茶口味就好。',     'Skip the form — tell the sommelier your taste.'],
+      recommend:['想比較這三款？問侍茶最快。',         'Compare the three? Ask the sommelier.'],
+      detail:   ['想了解搭配？輕觸侍茶問問。',         'Want pairings? Just ask the sommelier.'],
+      menu:     ['「清爽 / 濃郁 / 無咖啡因」直接說。', '"Light / bold / caffeine-free" — just say it.'],
+      cart:     ['想加購？告訴侍茶您的喜好。',         'Want to add? Tell the sommelier your taste.'],
+      done:     ['取餐後想回饋？歡迎再來說一聲。',     'Feedback after pickup? Tap to share.']
+    };
+    function showTip(zh, en){
+      tip.querySelector('.tip-zh').textContent = zh;
+      tip.querySelector('.tip-en').textContent = en;
+      tip.hidden = false;
+      tip.style.animation = 'none'; void tip.offsetWidth; tip.style.animation = '';
+      clearTimeout(tip._t);
+      tip._t = setTimeout(() => { tip.hidden = true; }, 6000);
+    }
+    function hideTip(){ tip.hidden = true; clearTimeout(tip._t); }
+
+    /* 追蹤頁面切換，自動冒提示 */
+    document.querySelectorAll('.page').forEach(p =>
+      new MutationObserver(() => {
+        if(!p.classList.contains('active')) return;
+        const k = p.dataset.page;
+        if(tips[k]) setTimeout(() => { if(!overlay.classList.contains('show')) showTip(tips[k][0], tips[k][1]); }, 600);
+      }).observe(p, { attributes:true, attributeFilter:['class'] })
+    );
+    setTimeout(() => {
+      const a = document.querySelector('.page.active');
+      const k = a && a.dataset.page;
+      if(tips[k]) showTip(tips[k][0], tips[k][1]);
+    }, 1800);
+
+    /* ── 模擬語音識別 + 回答庫 ── */
+    // 圖示（複用 menu 卡片的茶杯 SVG 風格）
+    function teaSvg(cupColor, liquidColor){
+      return `<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <radialGradient id="g1" cx="50%" cy="35%" r="60%">
+            <stop offset="0%" stop-color="#FAF6EC"/><stop offset="100%" stop-color="${cupColor}" stop-opacity=".25"/>
+          </radialGradient>
+        </defs>
+        <circle cx="100" cy="100" r="92" fill="url(#g1)"/>
+        <ellipse cx="100" cy="74" rx="58" ry="12" fill="${liquidColor}" opacity=".92"/>
+        <path d="M44,76 Q44,148 78,168 Q100,178 122,168 Q156,148 156,76 Z" fill="#FAF6EC" stroke="${cupColor}" stroke-width="2.4"/>
+        <ellipse cx="100" cy="76" rx="56" ry="11" fill="${liquidColor}"/>
+        <path d="M85,40 Q90,28 100,32 M105,42 Q112,28 120,34" stroke="${cupColor}" stroke-width="1.6" fill="none" stroke-linecap="round" opacity=".55"/>
+      </svg>`;
+    }
+
+    const samples = [
+      {
+        match: /清爽|淡|light|fresh|refresh/i,
+        heard: { zh:'推薦我一杯清爽的茶', en:'Recommend a refreshing tea' },
+        ans: {
+          nameZh:'文 山 包 種', nameEn:'Wenshan Baozhong',
+          descZh:'清揚花香、口感輕盈，最適合午後解膩。',
+          descEn:'Bright florals with a light body — perfect for the afternoon.',
+          tagsZh:['清 香','回 甘','低 咖 啡 因'],
+          tagsEn:['Floral','Mellow','Low caffeine'],
+          img: teaSvg('#7A8C5C','#A8C088')
+        }
+      },
+      {
+        match: /無咖啡因|caffeine.?free|caffeine free/i,
+        heard: { zh:'有沒有無咖啡因的選項', en:'Any caffeine-free options?' },
+        ans: {
+          nameZh:'桂 花 蜜 茶', nameEn:'Osmanthus Honey',
+          descZh:'桂花花瓣以蜂蜜慢漬，溫潤怡人、無咖啡因。',
+          descEn:'Osmanthus blossoms slow-steeped in honey — gentle, caffeine-free.',
+          tagsZh:['花 香','溫 潤','無 咖 啡 因'],
+          tagsEn:['Floral','Soothing','Caffeine-free'],
+          img: teaSvg('#C8A574','#E5C896')
+        }
+      },
+      {
+        match: /濃|醇|bold|strong|roast/i,
+        heard: { zh:'我想要濃郁一點的', en:'I want something bold' },
+        ans: {
+          nameZh:'炭 焙 烏 龍', nameEn:'Charcoal-Roast Oolong',
+          descZh:'重焙工序帶出果乾、堅果與烤栗子韻。',
+          descEn:'Heavy roast brings out dried fruit, nut and chestnut notes.',
+          tagsZh:['濃 郁','焙 火','尾 韻 長'],
+          tagsEn:['Bold','Roasted','Long finish'],
+          img: teaSvg('#6B4423','#8B5A2E')
+        }
+      },
+      {
+        match: /新品|special|today|new/i,
+        heard: { zh:'今天有什麼新品', en:'What\'s new today?' },
+        ans: {
+          nameZh:'梔 子 白 桃 烏 龍', nameEn:'Gardenia White-Peach Oolong',
+          descZh:'梔子花香交織白桃果韻，本月限量供應。',
+          descEn:'Gardenia florals layered with white peach — limited this month.',
+          tagsZh:['限 量','花 果','清 甜'],
+          tagsEn:['Limited','Floral','Sweet'],
+          img: teaSvg('#D89BA4','#F0C2C9')
+        }
+      },
+      {
+        match: /甜點|搭|pair|dessert|cake/i,
+        heard: { zh:'幫我配個甜點', en:'Pair with a dessert' },
+        ans: {
+          nameZh:'凍 頂 烏 龍 ・ 配 桂 花 蜜 餅', nameEn:'Dongding Oolong + Osmanthus Cake',
+          descZh:'中焙烏龍的甘甜與桂花蜜餅的酥香相得益彰。',
+          descEn:'Medium-roast oolong meets crisp osmanthus honey cakes.',
+          tagsZh:['經 典 配 對','回 甘','人 氣'],
+          tagsEn:['Classic pair','Mellow','Popular'],
+          img: teaSvg('#9B6A2E','#C8A574')
+        }
+      }
+    ];
+    const fallback = {
+      heard: { zh:'我想喝點茶', en:'I\'d like some tea' },
+      ans: {
+        nameZh:'凍 頂 烏 龍 鮮 奶 茶', nameEn:'Dongding Oolong Milk Tea',
+        descZh:'中焙烏龍與鮮奶最為相得，是侍茶日常推薦。',
+        descEn:'Medium-roast oolong with fresh milk — the daily favourite.',
+        tagsZh:['人 氣','濃 醇','奶 香'],
+        tagsEn:['Popular','Rich','Creamy'],
+        img: teaSvg('#9B6A2E','#D8B580')
+      }
+    };
+
+    /* 隨機挑一個範例（模擬 STT 結果） */
+    function pickSample(){
+      // 70% 機率隨機從 samples，30% fallback
+      if(Math.random() < 0.3) return fallback;
+      return samples[Math.floor(Math.random() * samples.length)];
+    }
+
+    /* ── 場景控制 ── */
+    let timers = [];
+    function clearTimers(){ timers.forEach(clearTimeout); timers = []; }
+
+    function setScene(name){ stage.dataset.scene = name; }
+
+    function open(){
+      hideTip();
+      overlay.classList.add('show');
+      setScene('listening');
+      clearTimers();
+      // 模擬：聆聽 2.4s → 思考 1s → 顯示回答
+      timers.push(setTimeout(() => setScene('thinking'), 2400));
+      timers.push(setTimeout(() => {
+        const s = pickSample();
+        renderAnswer(s);
+        setScene('answer');
+      }, 3400));
+    }
+
+    function close(){
+      overlay.classList.remove('show');
+      clearTimers();
+    }
+
+    function renderAnswer(s){
+      document.getElementById('aiHeardZh').textContent = s.heard.zh;
+      document.getElementById('aiHeardEn').textContent = s.heard.en;
+      document.getElementById('aiAnsImage').innerHTML  = s.ans.img;
+      document.getElementById('aiAnsNameZh').textContent = s.ans.nameZh;
+      document.getElementById('aiAnsNameEn').textContent = s.ans.nameEn;
+      document.getElementById('aiAnsDescZh').textContent = s.ans.descZh;
+      document.getElementById('aiAnsDescEn').textContent = s.ans.descEn;
+      const tagsEl = document.getElementById('aiAnsTags');
+      tagsEl.innerHTML = '';
+      s.ans.tagsZh.forEach((t, i) => {
+        const el = document.createElement('span');
+        el.innerHTML = `<span class="text-zh">${t}</span><span class="text-en">${s.ans.tagsEn[i]}</span>`;
+        tagsEl.appendChild(el);
+      });
+    }
+
+    /* ── 事件 ── */
+    trigger.addEventListener('click', open);
+    closeBt.addEventListener('click', close);
+    // 點擊背景關閉
+    overlay.addEventListener('click', e => { if(e.target === overlay) close(); });
+    document.getElementById('aiAskAgain').addEventListener('click', open);
+    document.getElementById('aiSeeMenu').addEventListener('click', () => {
+      close();
+      const menuBtn = document.querySelector('[data-go="menu"]');
+      if(menuBtn) menuBtn.click();
+    });
+    // ESC（測試方便）
+    document.addEventListener('keydown', e => {
+      if(e.key === 'Escape' && overlay.classList.contains('show')) close();
+    });
+  })();
+
+  /* ───────────────────────────────────────────────
+     茶籃品項即時編輯（每筆品項可展開抽屜修改 size/sugar/ice/topping）
+     ─────────────────────────────────────────────── */
+  (function initCartItemEdit(){
+    const items = document.querySelectorAll('#page-cart .cart-item');
+    if (!items.length) return;
+
+    // 將 data-edit-init="size:L;sugar:half;..." 轉成物件
+    function parseInit(s){
+      const o = { topping:[], extra:[] };
+      (s||'').split(';').forEach(p => {
+        const [k, v] = p.split(':');
+        if (!k) return;
+        if (k === 'topping' || k === 'extra'){
+          o[k] = v ? v.split(',').filter(Boolean) : [];
+        } else if (k && v){
+          o[k] = v;
+        }
+      });
+      return o;
+    }
+    function syncRow(row, state){
+      row.querySelectorAll('.chips').forEach(grp => {
+        const type = grp.dataset.optType;
+        const isMulti = grp.dataset.multi === 'true';
+        grp.querySelectorAll('button').forEach(b => {
+          const v = b.dataset.optValue;
+          if (isMulti){
+            b.classList.toggle('on', (state[type]||[]).includes(v));
+          } else {
+            b.classList.toggle('on', state[type] === v);
+          }
+        });
+      });
+    }
+    // 將狀態轉為中文 meta 字串
+    const sugarLabel = { full:'多 糖', normal:'正 常 糖', light:'少 糖', half:'半 糖', tiny:'微 糖', none:'無 糖' };
+    const iceLabel   = { iceful:'多 冰', normal:'正 常 冰', less:'少 冰', noice:'去 冰', warm:'常 溫', mild:'溫', hot:'熱' };
+    const sizeLabel  = { M:'中 杯', L:'大 杯' };
+    const topLabel   = { pearl:'珍 珠', taro:'小 芋 圓', mix:'混 珠', grass:'仙 草', honey:'蜂 蜜', shiso:'小 紫 蘇' };
+    function metaString(s){
+      const parts = [];
+      if (s.size) parts.push(sizeLabel[s.size] || s.size);
+      if (s.sugar) parts.push(sugarLabel[s.sugar] || s.sugar);
+      if (s.ice) parts.push(iceLabel[s.ice] || s.ice);
+      if (Array.isArray(s.topping) && s.topping.length){
+        parts.push('加 ' + s.topping.map(x => topLabel[x] || x).join(' / '));
+      }
+      return parts.join(' ・ ');
+    }
+
+    items.forEach(item => {
+      const editPanel = item.querySelector('.cart-item-edit');
+      if (!editPanel) return;
+      // 初始狀態（編輯中暫存；儲存時回寫到 saved）
+      let saved = parseInit(editPanel.dataset.editInit);
+      let working = JSON.parse(JSON.stringify(saved));
+
+      const btn = item.querySelector('.edit');
+      if (btn){
+        btn.addEventListener('click', () => {
+          const opening = !item.classList.contains('editing');
+          // 關閉其他開啟中的
+          items.forEach(i => i.classList.remove('editing'));
+          if (opening){
+            working = JSON.parse(JSON.stringify(saved));
+            syncRow(editPanel, working);
+            item.classList.add('editing');
+          }
+        });
+      }
+
+      // chip 點擊
+      editPanel.addEventListener('click', e => {
+        const chip = e.target.closest('.chips button');
+        const action = e.target.closest('[data-edit-action]');
+        if (chip){
+          const grp = chip.closest('.chips');
+          const type = grp.dataset.optType;
+          const v = chip.dataset.optValue;
+          const isMulti = grp.dataset.multi === 'true';
+          if (isMulti){
+            if (!Array.isArray(working[type])) working[type] = [];
+            const arr = working[type];
+            const i = arr.indexOf(v);
+            if (i >= 0){ arr.splice(i, 1); chip.classList.remove('on'); }
+            else        { arr.push(v); chip.classList.add('on'); }
+          } else {
+            // 單選：再點一次相同 chip → 取消選取
+            if (chip.classList.contains('on')){
+              chip.classList.remove('on');
+              working[type] = '';
+            } else {
+              grp.querySelectorAll('button').forEach(b => b.classList.remove('on'));
+              chip.classList.add('on');
+              working[type] = v;
+            }
+          }
+          return;
+        }
+        if (action){
+          const a = action.dataset.editAction;
+          if (a === 'cancel'){
+            item.classList.remove('editing');
+          } else if (a === 'remove'){
+            // 簡易動畫後移除
+            item.style.transition = 'all .35s ease';
+            item.style.opacity = '0';
+            item.style.transform = 'translateX(-20px)';
+            setTimeout(() => item.remove(), 350);
+          } else if (a === 'save'){
+            saved = JSON.parse(JSON.stringify(working));
+            // 更新 meta
+            const meta = item.querySelector('.info .meta');
+            if (meta) meta.textContent = metaString(saved);
+            item.classList.remove('editing');
+          }
+        }
+      });
+    });
+  })();
+</script>
+</body>
+</html>
